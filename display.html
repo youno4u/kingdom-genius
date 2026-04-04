@@ -10,33 +10,28 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
         body { 
             font-family: 'Noto Sans KR', sans-serif; 
-            background-color: #0f172a; /* 송출용 기본 다크모드 */
-            color: white;
+            background-color: #0f172a; color: white;
             transition: background-color 2s ease-in-out;
-            margin: 0; padding: 0;
-            overflow: hidden; /* 스크롤바 숨김 */
+            margin: 0; padding: 0; overflow: hidden; 
         }
-        
-        .resurrection-mode { 
-            background-color: #fdf4ff !important; 
-            color: #4c1d95 !important; 
-            transition: background-color 3s ease-in-out; 
-        }
-        
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); }
-            50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.9); }
-        }
+        .resurrection-mode { background-color: #fdf4ff !important; color: #4c1d95 !important; transition: background-color 3s ease-in-out; }
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); } 50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.9); } }
         .cup-glow { animation: pulse-glow 2s infinite; }
         
-        @keyframes divine-light {
-            0% { opacity: 0; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.1); filter: brightness(1.5); }
-            100% { opacity: 1; transform: scale(1); }
-        }
+        @keyframes divine-light { 0% { opacity: 0; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); filter: brightness(1.5); } 100% { opacity: 1; transform: scale(1); } }
         .animate-divine { animation: divine-light 2s forwards; }
+        
+        /* 🔥 부활의 아침 아주 느린 연출을 위한 애니메이션 추가 🔥 */
+        @keyframes slowFadeIn { 
+            from { opacity: 0; transform: translateY(15px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        .slow-reveal-box { opacity: 0; animation: slowFadeIn 2s ease-in-out forwards; animation-delay: 0.5s; }
+        .slow-reveal-1 { opacity: 0; animation: slowFadeIn 2s ease-in-out forwards; animation-delay: 3s; }
+        .slow-reveal-2 { opacity: 0; animation: divine-light 4s ease-in-out forwards; animation-delay: 8s; } /* 이름 공개 (가장 극적) */
+        .slow-reveal-3 { opacity: 0; animation: slowFadeIn 2s ease-in-out forwards; animation-delay: 13s; }
+        .slow-reveal-4 { opacity: 0; animation: slowFadeIn 2s ease-in-out forwards; animation-delay: 16s; }
 
-        /* 결과 영역 커스텀 스크롤바 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -47,59 +42,43 @@
     <div id="loading-overlay" class="absolute inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center text-white">
         <i class="fas fa-tv fa-bounce text-5xl text-purple-500 mb-4"></i>
         <h2 class="text-2xl font-bold">방송실 송출 화면 연결 중...</h2>
-        <p class="text-slate-400 mt-2">잠시만 기다려주세요.</p>
     </div>
 
-    <!-- Header -->
     <div id="disp-header" class="text-center absolute top-10 w-full z-10">
-        <h2 id="disp-main-title" class="text-5xl md:text-6xl font-black text-white drop-shadow-md">
-            참가자들이 접속 중입니다...
-        </h2>
+        <h2 id="disp-main-title" class="text-5xl md:text-6xl font-black text-white drop-shadow-md">접속 중...</h2>
         <p id="disp-sub-title" class="text-2xl text-slate-400 mt-4 font-bold"></p>
     </div>
 
-    <!-- The Cup Area -->
-    <div id="disp-cup-area" class="hidden flex-col items-center justify-center transform transition-all duration-500 scale-125 mt-20">
+    <div id="disp-cup-area" class="hidden flex-col items-center justify-center transform transition-all duration-500 scale-110 mt-16">
         <div class="relative flex flex-col items-center justify-center w-64 h-80 bg-slate-800 border-8 border-red-900 rounded-b-[4rem] rounded-t-xl cup-glow shadow-2xl">
-            <!-- Cup Penalty Value -->
             <div class="absolute -top-12 bg-red-600 text-white font-black text-5xl px-6 py-2 rounded-full border-4 border-red-900 shadow-lg z-20">
                 <span id="disp-cup-penalty">-0</span>
             </div>
-            
-            <!-- Tokens in Cup -->
             <div class="flex flex-col items-center justify-end h-full w-full pb-8 z-10 overflow-hidden">
                 <i class="fas fa-tint text-blue-400 text-4xl mb-2 opacity-80 animate-bounce"></i>
                 <div class="text-white text-xl font-bold bg-black bg-opacity-50 px-6 py-2 rounded-full">
                     쌓인 눈물: <span id="disp-cup-tokens" class="text-blue-300 font-black text-4xl">0</span>
                 </div>
             </div>
-            
-            <!-- SVG Cup Shape background -->
             <svg class="absolute inset-0 w-full h-full opacity-30 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M21 4H3v2h1.5l1.5 12c.2 1.6 1.4 2.9 3 3h6c1.6 0 2.8-1.3 3-3l1.5-12H21V4z"/></svg>
         </div>
-        <div id="disp-action-msg" class="mt-16 text-4xl font-bold text-yellow-400 animate-pulse">
-            참가자들이 선택 중입니다...
-        </div>
+        
+        <div id="disp-action-msg" class="mt-12 w-full max-w-5xl">
+            </div>
     </div>
 
-    <!-- Result / Resurrection Area -->
-    <div id="disp-result-area" class="hidden flex-col items-center justify-center w-full max-w-6xl z-20 mt-24">
-        <!-- JS injects dramatic results here -->
-    </div>
+    <div id="disp-result-area" class="hidden flex-col items-center justify-center w-full max-w-6xl z-20 mt-24"></div>
     
     <div id="disp-qr" class="absolute bottom-6 right-6 text-slate-500 text-lg font-bold text-right">
         <i class="fas fa-mobile-alt mr-2"></i>스마트폰으로 링크에 접속하여 참가하세요.
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =====================================================================
-        // 🚨 Firebase 설정 (동일하게 유지)
-        // =====================================================================
+        // 🚨 파이어베이스 주소
         const myFirebaseConfig = {
             apiKey: "AIzaSyCfyjgtiDVD4Wsd9iGb9tEdrOGFYxxN2Tw",
             authDomain: "kingdomgenius.firebaseapp.com",
@@ -110,60 +89,29 @@
         };
         
         let app, auth, db, docRef;
-        
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            app = initializeApp(JSON.parse(__firebase_config));
-            db = getFirestore(app);
-            const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-kg-app';
-            docRef = doc(db, 'artifacts', canvasAppId, 'public', 'data', 'room_easter', 'state');
+            app = initializeApp(JSON.parse(__firebase_config)); db = getFirestore(app);
+            docRef = doc(db, 'artifacts', 'kg-app', 'public', 'data', 'room_easter', 'state');
         } else {
-            app = initializeApp(myFirebaseConfig);
-            db = getFirestore(app);
+            app = initializeApp(myFirebaseConfig); db = getFirestore(app);
             docRef = doc(db, 'kingdom_genius_games', 'easter_room', 'data', 'state');
         }
         
         auth = getAuth(app);
         window.gameState = null;
+        window.currentDisplayPhase = null; // 중복 애니메이션 방지용
 
-        // Broadcast screen just needs anonymous auth and a listener
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth error:", error);
-                document.getElementById('loading-overlay').innerHTML = `<h2 class="text-2xl text-red-500">인증 오류: ${error.message}</h2>`;
-            }
-        }
-
+        signInAnonymously(auth);
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                setupRealtimeListener();
-            }
+            if (user) { document.getElementById('loading-overlay').classList.add('hidden'); setupRealtimeListener(); }
         });
 
         async function setupRealtimeListener() {
-            if (!docRef) return;
-            try {
-                onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        window.gameState = docSnap.data();
-                        updateDisplayUI();
-                    }
-                }, (error) => console.error("Snapshot error:", error));
-            } catch(e) {
-                console.error("Firestore setup error:", e);
-                document.getElementById('loading-overlay').innerHTML = `<h2 class="text-2xl text-red-500">데이터베이스 권한 오류가 발생했습니다.</h2>`;
-            }
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) { window.gameState = docSnap.data(); updateDisplayUI(); }
+            });
         }
 
-        // ==========================================
-        // 송출 전용 UI 업데이트 로직
-        // ==========================================
         function updateDisplayUI() {
             const state = window.gameState;
             if(!state) return;
@@ -177,87 +125,102 @@
             const cupArea = document.getElementById('disp-cup-area');
             const resultArea = document.getElementById('disp-result-area');
             
-            cupArea.classList.add('hidden'); resultArea.classList.add('hidden');
-            document.body.classList.remove('resurrection-mode');
+            cupArea.classList.add('hidden'); 
+            
+            if(phase !== 'resurrection') {
+                resultArea.classList.add('hidden');
+                document.body.classList.remove('resurrection-mode');
+            }
 
             if(phase === 'lobby') {
                 const pKeys = Object.keys(players);
                 title.innerText = "부활의 아침: 진노의 잔";
                 subtitle.innerHTML = `스마트폰으로 접속하세요. (현재 <span class="text-yellow-400 font-black">${pKeys.length}명</span> 접속 중)`;
-                return;
             }
 
-            if(phase === 'drawn' || phase === 'bidding') {
-                title.innerText = phase === 'drawn' ? "새로운 잔이 나타났습니다" : "선택의 시간입니다...";
-                subtitle.innerText = phase === 'drawn' ? "모바일을 확인하세요." : "외면하시겠습니까, 마시겠습니까?";
+            if(phase === 'bidding') {
+                title.innerText = "진노의 잔이 돌고 있습니다...";
+                subtitle.innerText = "누가 이 십자가를 지게 될까요?";
                 
-                cupArea.classList.remove('hidden');
-                cupArea.classList.add('flex');
+                cupArea.classList.remove('hidden'); cupArea.classList.add('flex');
                 document.getElementById('disp-cup-penalty').innerText = cup.penalty;
                 document.getElementById('disp-cup-tokens').innerText = cup.tokens;
                 
                 const actionMsg = document.getElementById('disp-action-msg');
-                if(phase === 'bidding') {
-                    actionMsg.classList.remove('hidden');
-                    const pKeys = Object.keys(players);
-                    const doneCount = pKeys.filter(uid => players[uid].choice).length;
-                    actionMsg.innerHTML = `<span class="text-white text-3xl bg-slate-800 px-8 py-3 rounded-full border-2 border-slate-600 shadow-lg">선택 완료: <span class="text-yellow-400">${doneCount}</span> / ${pKeys.length} 명</span>`;
-                } else { 
-                    actionMsg.classList.add('hidden'); 
+                
+                if(state.turnOrder && state.turnOrder.length > 0) {
+                    const currentUid = state.turnOrder[state.currentTurnIndex];
+                    const currentName = players[currentUid] ? players[currentUid].name : '';
+
+                    let turnHtml = state.turnOrder.map((uid, idx) => {
+                        let name = players[uid] ? players[uid].name : '';
+                        let isCurrent = (idx === state.currentTurnIndex);
+                        if(isCurrent) return `<span class="bg-yellow-400 text-slate-900 px-6 py-2 rounded-full font-black scale-110 shadow-[0_0_15px_rgba(250,204,21,0.6)] mx-2 my-2 inline-block border-2 border-yellow-600 transition-all">${name}</span>`;
+                        else return `<span class="text-slate-400 px-3 py-2 mx-1 my-2 inline-block opacity-50">${name}</span>`;
+                    }).join('<i class="fas fa-caret-right text-slate-600 opacity-50"></i>');
+
+                    actionMsg.innerHTML = `
+                        <div class="text-center w-full">
+                            <div class="text-xl text-slate-400 mb-2">현재 순서</div>
+                            <div class="text-5xl font-black text-yellow-400 mb-6 drop-shadow-md animate-pulse">${currentName} 님의 선택 중...</div>
+                            <div class="flex flex-wrap justify-center items-center text-2xl bg-slate-800 p-6 rounded-3xl border border-slate-600 shadow-inner">
+                                ${turnHtml}
+                            </div>
+                        </div>
+                    `;
                 }
             }
 
             if(phase === 'resolved') {
                 title.innerText = "선택 결과"; subtitle.innerText = "";
-                resultArea.classList.remove('hidden');
-                resultArea.classList.add('flex');
-                resultArea.innerHTML = `
-                    <div class="bg-slate-800 border-4 border-slate-600 p-12 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center animate-divine w-full">
-                        <h2 class="text-5xl md:text-6xl font-black text-white leading-tight break-keep">${state.lastResult || ''}</h2>
-                    </div>
-                `;
+                resultArea.classList.remove('hidden'); resultArea.classList.add('flex');
+                resultArea.innerHTML = `<div class="bg-slate-800 border-4 border-slate-600 p-12 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] text-center animate-divine w-full"><h2 class="text-5xl md:text-6xl font-black text-white leading-tight break-keep">${state.lastResult || ''}</h2></div>`;
             }
 
             if(phase === 'resurrection') {
                 document.body.classList.add('resurrection-mode');
                 title.innerHTML = `<span class="text-6xl md:text-8xl font-black text-purple-900 drop-shadow-lg">세 번째 날, 부활의 아침!</span>`;
                 subtitle.innerHTML = `<span class="text-3xl font-bold text-slate-700">"나를 위하여 목숨을 잃으면 찾으리라"</span>`;
+                resultArea.classList.remove('hidden'); resultArea.classList.add('flex');
                 
-                resultArea.classList.remove('hidden');
-                resultArea.classList.add('flex');
-                
-                const resPlayer = players[state.resurrectedUid];
-                let ranking = [];
-                Object.keys(players).forEach(uid => {
-                    const p = players[uid];
-                    const isResurrected = (uid === state.resurrectedUid);
-                    const finalScore = (p.tokens||0) + calculateResurrectionScore(p.cards || [], isResurrected);
-                    ranking.push({ name: p.name, score: finalScore, isHero: isResurrected });
-                });
-                ranking.sort((a,b) => b.score - a.score);
+                // 🔥 데이터베이스 업데이트가 여러 번 일어나도 애니메이션이 처음부터 다시 시작되지 않게 방지 🔥
+                if (window.currentDisplayPhase !== 'resurrection') {
+                    window.currentDisplayPhase = 'resurrection';
 
-                let rankingHtml = ranking.map((r, idx) => `
-                    <div class="flex justify-between items-center bg-white bg-opacity-60 p-5 rounded-2xl mb-3 ${r.isHero ? 'border-4 border-purple-500 shadow-2xl transform scale-105' : 'border border-purple-200'}">
-                        <div class="text-3xl font-black ${r.isHero ? 'text-purple-700' : 'text-slate-700'}">${idx+1}위. ${r.name} ${r.isHero ? '<span class="text-yellow-500 animate-pulse">✨부활✨</span>' : ''}</div>
-                        <div class="text-4xl font-black ${r.isHero ? 'text-purple-600' : 'text-slate-600'}">${r.score} 점</div>
-                    </div>
-                `).join('');
+                    const resPlayer = players[state.resurrectedUid];
+                    let ranking = [];
+                    Object.keys(players).forEach(uid => {
+                        const p = players[uid];
+                        const isResurrected = (uid === state.resurrectedUid);
+                        const finalScore = (p.tokens||0) + calculateResurrectionScore(p.cards || [], isResurrected);
+                        ranking.push({ name: p.name, score: finalScore, isHero: isResurrected });
+                    });
+                    ranking.sort((a,b) => b.score - a.score);
 
-                resultArea.innerHTML = `
-                    <div class="bg-white bg-opacity-90 border-[10px] border-purple-300 p-12 rounded-[3rem] shadow-2xl text-center w-full animate-divine flex flex-col md:flex-row gap-10">
-                        <div class="flex-1 flex flex-col justify-center items-center border-b-4 md:border-b-0 md:border-r-4 border-purple-200 pb-8 md:pb-0 md:pr-8">
-                            <h3 class="text-4xl font-bold text-slate-600 mb-6">가장 무거운 십자가를 진 사람:</h3>
-                            <h2 class="text-7xl md:text-8xl font-black text-red-600 mb-8 drop-shadow-md">${resPlayer ? resPlayer.name : '없음'}</h2>
-                            <div class="text-3xl text-slate-800 font-bold bg-yellow-200 inline-block px-8 py-4 rounded-full shadow-md leading-relaxed">
-                                모든 마이너스 점수가<br>플러스(+)로 역전되었습니다!
+                    let rankingHtml = ranking.map((r, idx) => `
+                        <div class="flex justify-between items-center bg-white bg-opacity-60 p-5 rounded-2xl mb-3 ${r.isHero ? 'border-4 border-purple-500 shadow-2xl transform scale-105' : 'border border-purple-200'}">
+                            <div class="text-3xl font-black ${r.isHero ? 'text-purple-700' : 'text-slate-700'}">${idx+1}위. ${r.name} ${r.isHero ? '<span class="text-yellow-500 animate-pulse">✨부활✨</span>' : ''}</div>
+                            <div class="text-4xl font-black ${r.isHero ? 'text-purple-600' : 'text-slate-600'}">${r.score} 점</div>
+                        </div>
+                    `).join('');
+
+                    // 아주 천천히 진행되는 CSS 클래스들(slow-reveal-1 ~ 4)을 적용
+                    resultArea.innerHTML = `
+                        <div class="bg-white bg-opacity-90 border-[10px] border-purple-300 p-12 rounded-[3rem] shadow-2xl text-center w-full slow-reveal-box flex flex-col md:flex-row gap-10">
+                            <div class="flex-1 flex flex-col justify-center items-center border-b-4 md:border-b-0 md:border-r-4 border-purple-200 pb-8 md:pb-0 md:pr-8">
+                                <h3 class="text-4xl font-bold text-slate-600 mb-6 slow-reveal-1">가장 무거운 십자가를 진 사람:</h3>
+                                <h2 class="text-7xl md:text-8xl font-black text-red-600 mb-8 drop-shadow-md slow-reveal-2">${resPlayer ? resPlayer.name : '없음'}</h2>
+                                <div class="text-3xl text-slate-800 font-bold bg-yellow-200 inline-block px-8 py-4 rounded-full shadow-md leading-relaxed slow-reveal-3">모든 마이너스 점수가<br>플러스(+)로 역전되었습니다!</div>
+                            </div>
+                            <div class="flex-1 text-left w-full h-[400px] overflow-y-auto pr-4 slow-reveal-4">
+                                <h3 class="text-2xl font-bold text-slate-500 mb-4 text-center">최종 순위</h3>
+                                ${rankingHtml}
                             </div>
                         </div>
-                        <div class="flex-1 text-left w-full h-[400px] overflow-y-auto pr-4">
-                            <h3 class="text-2xl font-bold text-slate-500 mb-4 text-center">최종 순위</h3>
-                            ${rankingHtml}
-                        </div>
-                    </div>
-                `;
+                    `;
+                }
+            } else {
+                window.currentDisplayPhase = phase;
             }
         }
 
@@ -265,9 +228,7 @@
             if(!cardsArray || cardsArray.length === 0) return 0;
             let sorted = [...cardsArray].sort((a,b) => b - a);
             let sum = 0;
-            for(let i=0; i<sorted.length; i++) {
-                if(i === 0 || sorted[i] - sorted[i-1] !== -1) sum += sorted[i];
-            }
+            for(let i=0; i<sorted.length; i++) { if(i === 0 || sorted[i] - sorted[i-1] !== -1) sum += sorted[i]; }
             return sum;
         }
 
@@ -275,9 +236,6 @@
             let pen = calculatePenalty(cardsArray);
             if(isResurrected) return Math.abs(pen); else return pen;
         }
-
-        window.addEventListener('DOMContentLoaded', initAuth);
-
     </script>
 </body>
 </html>
