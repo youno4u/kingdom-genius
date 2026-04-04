@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부활의 아침: 진노의 잔 - 실시간 게임</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
+        
+        .screen { display: none; }
+        .screen.active { display: flex; flex-direction: column; }
+        
+        /* 송출용 다크모드 */
+        .display-mode { background-color: #0f172a !important; color: white; transition: background-color 2s ease-in-out; }
+        .resurrection-mode { background-color: #fdf4ff !important; color: #4c1d95 !important; transition: background-color 3s ease-in-out; }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(220, 38, 38, 0.9); }
+        }
+        .cup-glow { animation: pulse-glow 2s infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes divine-light {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); filter: brightness(1.5); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-divine { animation: divine-light 2s forwards; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="h-screen w-full overflow-hidden text-slate-800 relative">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="absolute inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center text-white">
+        <i class="fas fa-cross fa-spin text-5xl text-purple-500 mb-4" style="animation-duration: 3s;"></i>
+        <h2 class="text-xl font-bold">서버에 접속 중입니다...</h2>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- SCREEN 0: 접속 역할 선택 -->
+    <!-- ============================================== -->
+    <div id="screen-login" class="screen h-full items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
+            <h1 class="text-3xl font-black text-purple-800 mb-1">✝️ 부활의 아침</h1>
+            <h2 class="text-xl font-bold text-slate-600 mb-8">진노의 잔 (Cup of Wrath)</h2>
+            <p class="text-slate-500 mb-6 font-bold">역할을 선택하여 접속하세요</p>
+            
+            <div class="space-y-4">
+                <button onclick="showPlayerLogin()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg transition text-xl flex items-center justify-center">
+                    <i class="fas fa-mobile-alt mr-3"></i> 참가자 (스마트폰)
+                </button>
+                <div class="h-px bg-slate-200 my-4"></div>
+                <button onclick="setRole('gm')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center">
+                    <i class="fas fa-user-shield mr-3"></i> 진행자 (GM 통제실)
+                </button>
+                <button onclick="setRole('display')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold py-3 rounded-xl shadow transition flex items-center justify-center">
+                    <i class="fas fa-tv mr-3"></i> 대형 스크린 송출 화면
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 참가자 이름 입력 모달 -->
+    <div id="player-name-modal" class="hidden absolute inset-0 bg-slate-900 bg-opacity-80 z-40 flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">당신의 이름을 입력하세요</h3>
+            <input type="text" id="player-name-input" placeholder="실명 입력" class="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 mb-4 font-bold text-lg text-center">
+            <button onclick="joinAsPlayer()" class="w-full bg-purple-600 text-white font-bold py-3 rounded-lg shadow">입장하기</button>
+            <button onclick="document.getElementById('player-name-modal').classList.add('hidden')" class="w-full mt-2 text-slate-500 py-2">취소</button>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- SCREEN 1: 참가자 (모바일) 화면 -->
+    <!-- ============================================== -->
+    <div id="screen-player" class="screen h-full bg-slate-100 overflow-y-auto">
+        <header class="bg-purple-800 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
+            <div class="font-bold text-lg"><i class="fas fa-user mr-2"></i><span id="p-my-name">이름</span></div>
+            <div class="bg-purple-950 px-3 py-1 rounded-full text-sm font-bold shadow-inner border border-purple-600 flex items-center">
+                <i class="fas fa-tint text-blue-300 mr-1"></i> 눈물: <span id="p-my-tokens" class="text-white ml-1">15</span>개
+            </div>
+        </header>
+
+        <div class="p-4 flex-grow flex flex-col">
+            <!-- 상태 표시 바 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center mb-4">
+                <h2 class="text-2xl font-black text-purple-700" id="p-status-title">대기 중</h2>
+                <p class="text-sm text-slate-600 mt-2" id="p-status-desc">진행자의 지시를 기다리세요.</p>
+            </div>
+
+            <!-- 내 상태 요약 -->
+            <div class="bg-slate-800 text-white p-4 rounded-xl shadow-inner mb-6 flex justify-between items-center">
+                <div class="text-sm">내가 짊어진 십자가(잔):</div>
+                <div class="font-bold text-red-400" id="p-my-cards-sum">0 점</div>
+            </div>
+
+            <!-- 동적 입력 영역 -->
+            <div id="p-action-area" class="flex-grow flex flex-col justify-center">
+                <!-- JS Inject -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- SCREEN 2: 진행자 (GM) 화면 -->
+    <!-- ============================================== -->
+    <div id="screen-gm" class="screen h-full bg-slate-50 overflow-hidden flex flex-col">
+        <header class="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center">
+            <h1 class="text-xl font-black"><i class="fas fa-crown text-yellow-400 mr-2"></i>GM 통제실</h1>
+            <button onclick="resetGame()" class="bg-red-600 px-3 py-1 rounded text-xs font-bold shadow hover:bg-red-700">게임 초기화</button>
+        </header>
+        
+        <div class="p-4 flex-grow overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- 게임 컨트롤 패널 -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200 border-l-4 border-l-purple-600 flex flex-col">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="font-black text-lg text-purple-800">🎮 현재 상태: <span id="gm-current-phase" class="text-slate-600">대기방</span></h2>
+                    <span class="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold" id="gm-cup-info">잔: 없음</span>
+                </div>
+                
+                <div class="space-y-3 flex-grow" id="gm-controls">
+                    <!-- 단계별 액션 버튼 -->
+                    <button onclick="gmDrawCup()" class="w-full py-3 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold border border-purple-300 rounded-lg shadow-sm transition">
+                        1. 새로운 진노의 잔 뽑기 (화면 송출)
+                    </button>
+                    <button onclick="gmOpenBidding()" class="w-full py-3 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold border border-blue-300 rounded-lg shadow-sm transition">
+                        2. 참가자 선택 활성화 (마시기 vs 외면)
+                    </button>
+                    <button onclick="gmResolveRound()" class="w-full py-3 bg-red-100 hover:bg-red-200 text-red-800 font-bold border border-red-300 rounded-lg shadow-sm transition">
+                        3. 선택 결과 발표 (누가 잔을 마셨는가?)
+                    </button>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <button onclick="gmTriggerResurrection()" class="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl shadow-lg transform transition hover:scale-[1.02] flex justify-center items-center">
+                        <i class="fas fa-sun mr-2"></i> 4. 세 번째 날 (부활의 대반전) 실행!
+                    </button>
+                </div>
+            </div>
+
+            <!-- 참가자 현황 및 실시간 제출 -->
+            <div class="bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col">
+                <h2 class="font-bold border-b pb-2 mb-3 flex justify-between items-center">
+                    <span>👥 참가자 현황 (<span id="gm-player-count">0</span>명)</span>
+                    <span class="text-xs text-slate-500 font-normal">🟢:선택완료 / ⏳:고민중</span>
+                </h2>
+                <div id="gm-player-status-list" class="flex-grow overflow-y-auto space-y-2 max-h-80">
+                    <!-- JS renders player status rows -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- SCREEN 3: 송출용 (스크린) 화면 -->
+    <!-- ============================================== -->
+    <div id="screen-display" class="screen h-full display-mode overflow-hidden p-8 relative flex-col items-center justify-center">
+        
+        <!-- Header -->
+        <div id="disp-header" class="text-center absolute top-10 left-0 w-full z-10">
+            <h2 id="disp-main-title" class="text-5xl font-black text-white drop-shadow-md">
+                참가자들이 접속 중입니다...
+            </h2>
+            <p id="disp-sub-title" class="text-xl text-slate-400 mt-4"></p>
+        </div>
+
+        <!-- The Cup Area -->
+        <div id="disp-cup-area" class="hidden flex-col items-center justify-center transform transition-all duration-500 scale-100 mt-10">
+            <div class="relative flex flex-col items-center justify-center w-64 h-80 bg-slate-800 border-8 border-red-900 rounded-b-[4rem] rounded-t-xl cup-glow shadow-2xl">
+                <!-- Cup Penalty Value -->
+                <div class="absolute -top-12 bg-red-600 text-white font-black text-5xl px-6 py-2 rounded-full border-4 border-red-900 shadow-lg z-20">
+                    <span id="disp-cup-penalty">-0</span>
+                </div>
+                
+                <!-- Tokens in Cup -->
+                <div class="flex flex-col items-center justify-end h-full w-full pb-8 z-10 overflow-hidden">
+                    <i class="fas fa-tint text-blue-400 text-3xl mb-2 opacity-80 animate-bounce"></i>
+                    <div class="text-white text-lg font-bold bg-black bg-opacity-50 px-4 py-1 rounded-full">
+                        쌓인 눈물: <span id="disp-cup-tokens" class="text-blue-300 font-black text-3xl">0</span>
+                    </div>
+                </div>
+                
+                <!-- SVG Cup Shape background -->
+                <svg class="absolute inset-0 w-full h-full opacity-30 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M21 4H3v2h1.5l1.5 12c.2 1.6 1.4 2.9 3 3h6c1.6 0 2.8-1.3 3-3l1.5-12H21V4z"/></svg>
+            </div>
+            <div id="disp-action-msg" class="mt-12 text-3xl font-bold text-yellow-400 animate-pulse">
+                참가자들이 선택 중입니다...
+            </div>
+        </div>
+
+        <!-- Result / Resurrection Area -->
+        <div id="disp-result-area" class="hidden flex-col items-center justify-center w-full max-w-5xl z-20 mt-20">
+            <!-- JS injects dramatic results here -->
+        </div>
+        
+        <div id="disp-qr" class="absolute bottom-4 right-4 text-slate-500 text-sm text-right">
+            스마트폰으로 접속하여 '참가자'로 입장하세요.
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =====================================================================
+        // 🚨 Firebase 설정 (오류 수정 및 올바른 경로 반영)
+        // =====================================================================
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyCfyjgtiDVD4Wsd9iGb9tEdrOGFYxxN2Tw",
+            authDomain: "kingdomgenius.firebaseapp.com",
+            projectId: "kingdomgenius",
+            storageBucket: "kingdomgenius.firebasestorage.app",
+            messagingSenderId: "385557748196",
+            appId: "1:385557748196:web:457b999a38e4982f188ff1"
+        };
+        
+        let app, auth, db, docRef;
+        
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            app = initializeApp(JSON.parse(__firebase_config));
+            db = getFirestore(app);
+            const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-kg-app';
+            // 🚨 [오류 해결 핵심]: Firestore 문서는 반드시 짝수 개의 경로(폴더-파일)를 가져야 합니다.
+            // 기존 5개 경로에서 마지막에 'state'를 추가하여 6개(짝수)로 완벽하게 수정했습니다.
+            docRef = doc(db, 'artifacts', canvasAppId, 'public', 'data', 'room_easter', 'state');
+        } else {
+            // 실제 웹 호스팅 환경 (목사님의 깃헙 등)
+            app = initializeApp(myFirebaseConfig);
+            db = getFirestore(app);
+            // 여기도 짝수(4개) 경로로 명확히 지정
+            docRef = doc(db, 'kingdom_genius_games', 'easter_room', 'data', 'state');
+        }
+        
+        auth = getAuth(app);
+
+        // Global State Variables
+        window.myUid = null;
+        window.myRole = null; 
+        window.gameState = null; 
+
+        // 1. Authentication
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+                alert("인증 오류가 발생했습니다.");
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                window.myUid = user.uid;
+                document.getElementById('loading-overlay').classList.add('hidden');
+                switchScreen('screen-login');
+                setupRealtimeListener();
+            }
+        });
+
+        // 2. State Management
+        const DEFAULT_STATE = {
+            phase: 'lobby', // lobby, drawn, bidding, resolved, resurrection
+            cup: { penalty: 0, tokens: 0 }, // Current active cup
+            players: {},    // { uid: { name, tokens: 15, cards: [], choice: null, connected: true } }
+            lastResult: null // Store result text to display
+        };
+
+        async function setupRealtimeListener() {
+            if (!window.myUid || !docRef) return;
+
+            const snap = await getDoc(docRef);
+            if (!snap.exists()) await setDoc(docRef, DEFAULT_STATE);
+
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    window.gameState = docSnap.data();
+                    updateUIBasedOnRole();
+                }
+            }, (error) => console.error("Snapshot error:", error));
+        }
+
+        // Global HTML UI Functions
+        window.switchScreen = (screenId) => {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            
+            if(screenId === 'screen-display') document.body.classList.add('display-mode');
+            else document.body.classList.remove('display-mode', 'resurrection-mode');
+        };
+
+        window.setRole = (role) => {
+            window.myRole = role;
+            switchScreen(`screen-${role}`);
+            updateUIBasedOnRole();
+        };
+
+        window.showPlayerLogin = () => {
+            document.getElementById('player-name-modal').classList.remove('hidden');
+        };
+
+        window.joinAsPlayer = async () => {
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            if(!nameInput) return alert("이름을 입력하세요.");
+            
+            document.getElementById('player-name-modal').classList.add('hidden');
+            window.myRole = 'player';
+            
+            let players = window.gameState.players || {};
+            if(!players[window.myUid]) {
+                players[window.myUid] = { name: nameInput, tokens: 15, cards: [], choice: null, connected: true };
+            }
+            await setDoc(docRef, { players: players }, { merge: true });
+            switchScreen('screen-player');
+        };
+
+        // ==========================================
+        // PLAYER UI LOGIC
+        // ==========================================
+        function updatePlayerUI() {
+            const state = window.gameState;
+            const myData = state.players[window.myUid];
+            if(!myData) return;
+
+            document.getElementById('p-my-name').innerText = myData.name;
+            document.getElementById('p-my-tokens').innerText = myData.tokens;
+            
+            // Calculate penalty sum based on "No Thanks" rules (consecutive numbers = only lowest counts)
+            let penaltySum = calculatePenalty(myData.cards || []);
+            document.getElementById('p-my-cards-sum').innerText = `${penaltySum} 점`;
+
+            const title = document.getElementById('p-status-title');
+            const desc = document.getElementById('p-status-desc');
+            const actionArea = document.getElementById('p-action-area');
+            
+            actionArea.innerHTML = '';
+
+            switch(state.phase) {
+                case 'lobby':
+                    title.innerText = "대기 중"; desc.innerText = "게임을 준비하고 있습니다.";
+                    break;
+                case 'drawn':
+                    title.innerText = "진노의 잔 등장"; 
+                    title.className = "text-2xl font-black text-red-600";
+                    desc.innerText = "스크린의 마이너스 잔을 확인하세요!";
+                    break;
+                case 'bidding':
+                    title.innerText = "선택의 시간";
+                    title.className = "text-2xl font-black text-purple-700";
+                    desc.innerText = "잔을 외면할지, 마실지 선택하세요.";
+                    
+                    if(myData.choice) {
+                        actionArea.innerHTML = `
+                            <div class="bg-slate-200 rounded-xl p-8 text-center border-2 border-slate-300">
+                                <h3 class="text-2xl font-bold text-slate-700">선택 완료</h3>
+                                <p class="text-slate-500 mt-2">다른 사람들을 기다립니다...</p>
+                            </div>
+                        `;
+                    } else {
+                        const canPass = myData.tokens > 0;
+                        actionArea.innerHTML = `
+                            <div class="flex flex-col gap-4 mt-4">
+                                <button onclick="window.submitAction('pass')" class="w-full ${canPass ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-300 cursor-not-allowed'} text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 ${canPass ? 'border-blue-700' : 'border-slate-400'} active:translate-y-1 active:border-b-0 transition" ${!canPass ? 'disabled' : ''}>
+                                    ${canPass ? '➡️ 외면하기 (눈물 -1)' : '눈물이 부족합니다'}
+                                </button>
+                                <button onclick="window.submitAction('drink')" class="w-full bg-red-600 hover:bg-red-700 text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 border-red-800 active:translate-y-1 active:border-b-0 transition mt-2">
+                                    🍷 잔 마시기 (십자가 지기)
+                                </button>
+                            </div>
+                        `;
+                    }
+                    break;
+                case 'resolved':
+                    title.innerText = "결과 발표"; desc.innerText = "스크린에서 누가 잔을 마셨는지 확인하세요.";
+                    break;
+                case 'resurrection':
+                    title.innerText = "부활의 아침!";
+                    title.className = "text-3xl font-black text-yellow-500";
+                    
+                    let finalScore = myData.tokens + calculateResurrectionScore(myData.cards, state.resurrectedUid === window.myUid);
+                    desc.innerHTML = `최종 점수: <b class="text-2xl text-purple-800">${finalScore}점</b><br>화면을 확인하세요!`;
+                    break;
+            }
+        }
+
+        window.submitAction = async (action) => {
+            const state = window.gameState;
+            let players = state.players;
+            
+            // Validation
+            if(action === 'pass' && players[window.myUid].tokens <= 0) return alert("토큰(눈물)이 부족합니다!");
+            
+            players[window.myUid].choice = action;
+            await setDoc(docRef, { players: players }, { merge: true });
+        };
+
+        // ==========================================
+        // GM UI LOGIC
+        // ==========================================
+        function updateGMUI() {
+            const state = window.gameState;
+            
+            const pKeys = Object.keys(state.players || {});
+            document.getElementById('gm-player-count').innerText = pKeys.length;
+            
+            const phaseNames = { lobby:'대기방', drawn:'잔 뽑힘', bidding:'선택 진행중', resolved:'결과 송출됨', resurrection:'부활 완료' };
+            document.getElementById('gm-current-phase').innerText = phaseNames[state.phase] || state.phase;
+            
+            if(state.cup.penalty < 0) {
+                document.getElementById('gm-cup-info').innerText = `현재 잔: ${state.cup.penalty} (눈물 ${state.cup.tokens}개)`;
+                document.getElementById('gm-cup-info').className = "bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold";
+            } else {
+                document.getElementById('gm-cup-info').innerText = "잔: 없음";
+                document.getElementById('gm-cup-info').className = "bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold";
+            }
+
+            const statusList = document.getElementById('gm-player-status-list');
+            statusList.innerHTML = '';
+            
+            pKeys.forEach(uid => {
+                const p = state.players[uid];
+                const cCards = p.cards || [];
+                const statusIcon = p.choice ? '<span class="text-green-500">🟢 완료</span>' : '<span class="text-yellow-500 animate-pulse">⏳ 고민중</span>';
+                
+                statusList.innerHTML += `
+                    <div class="bg-slate-50 border rounded p-3 text-sm flex justify-between items-center">
+                        <div class="font-bold text-slate-800 w-1/3 truncate">${p.name}</div>
+                        <div class="text-xs text-slate-500 w-1/3 text-center">눈물:${p.tokens} / 패널티:${calculatePenalty(cCards)}</div>
+                        <div class="w-1/3 text-right font-bold">${state.phase === 'bidding' ? statusIcon : (p.choice || '-')}</div>
+                    </div>
+                `;
+            });
+        }
+
+        window.gmDrawCup = async () => {
+            const state = window.gameState;
+            // Generate random penalty between -11 and -35
+            const penalty = -1 * (Math.floor(Math.random() * 25) + 11);
+            
+            let players = state.players;
+            // Reset choices
+            Object.keys(players).forEach(uid => players[uid].choice = null);
+
+            await setDoc(docRef, { 
+                phase: 'drawn', 
+                cup: { penalty: penalty, tokens: state.cup.tokens || 0 }, // carry over tokens if nobody drank last time? No, in real game tokens carry over ONLY if all pass. Draw is fresh or continues.
+                players: players,
+                lastResult: null
+            }, { merge: true });
+        };
+
+        window.gmOpenBidding = async () => {
+            await setDoc(docRef, { phase: 'bidding' }, { merge: true });
+        };
+
+        window.gmResolveRound = async () => {
+            const state = window.gameState;
+            let players = state.players;
+            let cup = state.cup;
+            let lastResult = "";
+            
+            let drinkers = [];
+            let passers = [];
+            
+            Object.keys(players).forEach(uid => {
+                if(players[uid].choice === 'drink') drinkers.push(uid);
+                else if(players[uid].choice === 'pass') passers.push(uid);
+            });
+
+            if(drinkers.length === 0) {
+                // All passed. Everyone loses 1 token to cup.
+                passers.forEach(uid => { players[uid].tokens -= 1; });
+                cup.tokens += passers.length;
+                lastResult = `모두가 외면했습니다. 잔에 눈물 ${passers.length}개가 추가됩니다!`;
+                
+                // Reset choices, keep cup, go back to drawn
+                Object.keys(players).forEach(uid => players[uid].choice = null);
+                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
+                
+            } else {
+                // One or more drank.
+                // If multiple drank, pick one randomly to take the cup (simultaneous collision breaker).
+                const winnerUid = drinkers[Math.floor(Math.random() * drinkers.length)];
+                const winner = players[winnerUid];
+                
+                // Those who passed pay 1. (Drinkers don't pay, even if they clashed and didn't get it).
+                passers.forEach(uid => { players[uid].tokens -= 1; });
+                cup.tokens += passers.length; // Add this turn's passes to cup before giving it away
+                
+                // Winner takes cup penalty and ALL tokens
+                if(!winner.cards) winner.cards = [];
+                winner.cards.push(cup.penalty);
+                winner.cards.sort((a,b) => b - a); // sort descending (e.g. -10, -15, -20)
+                winner.tokens += cup.tokens;
+                
+                let clashMsg = drinkers.length > 1 ? ` (치열한 경쟁 끝에 당첨!)` : ``;
+                lastResult = `<span class="text-red-500 font-black">${winner.name}</span>님이 잔을 마셨습니다!${clashMsg}<br>패널티 ${cup.penalty}와 눈물 ${cup.tokens}개 획득!`;
+                
+                // Reset Cup
+                cup = { penalty: 0, tokens: 0 };
+                Object.keys(players).forEach(uid => players[uid].choice = null);
+                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
+            }
+        };
+
+        window.gmTriggerResurrection = async () => {
+            if(!confirm("진짜 부활의 반전을 실행하시겠습니까? 십자가를 가장 많이 진 사람이 승리합니다!")) return;
+            
+            const state = window.gameState;
+            let players = state.players;
+            
+            // Find who took the MOST penalty (lowest card sum)
+            let maxPenalty = 0; // Absolute value of penalty
+            let resurrectedUid = null;
+            
+            Object.keys(players).forEach(uid => {
+                let pen = Math.abs(calculatePenalty(players[uid].cards || []));
+                if(pen > maxPenalty) {
+                    maxPenalty = pen;
+                    resurrectedUid = uid;
+                }
+            });
+
+            await setDoc(docRef, { phase: 'resurrection', resurrectedUid: resurrectedUid }, { merge: true });
+        };
+
+        window.resetGame = async () => {
+            if(confirm("모든 데이터를 지울까요?")) {
+                await setDoc(docRef, DEFAULT_STATE);
+            }
+        };
+
+        // ==========================================
+        // DISPLAY UI LOGIC (대형 스크린)
+        // ==========================================
+        function updateDisplayUI() {
+            const state = window.gameState;
+            const title = document.getElementById('disp-main-title');
+            const subtitle = document.getElementById('disp-sub-title');
+            const cupArea = document.getElementById('disp-cup-area');
+            const resultArea = document.getElementById('disp-result-area');
+            
+            cupArea.classList.add('hidden');
+            resultArea.classList.add('hidden');
+            document.body.classList.remove('resurrection-mode');
+
+            if(state.phase === 'lobby') {
+                const pKeys = Object.keys(state.players || {});
+                title.innerText = "부활의 아침: 진노의 잔";
+                subtitle.innerHTML = `스마트폰으로 접속하세요. (현재 ${pKeys.length}명 접속 중)`;
+                return;
+            }
+
+            if(state.phase === 'drawn' || state.phase === 'bidding') {
+                title.innerText = state.phase === 'drawn' ? "새로운 잔이 나타났습니다" : "선택의 시간입니다...";
+                subtitle.innerText = state.phase === 'drawn' ? "모바일을 확인하세요." : "외면하시겠습니까, 마시겠습니까?";
+                
+                cupArea.classList.remove('hidden');
+                document.getElementById('disp-cup-penalty').innerText = state.cup.penalty;
+                document.getElementById('disp-cup-tokens').innerText = state.cup.tokens;
+                
+                const actionMsg = document.getElementById('disp-action-msg');
+                if(state.phase === 'bidding') {
+                    actionMsg.classList.remove('hidden');
+                    // Show how many finished
+                    const pKeys = Object.keys(state.players);
+                    const doneCount = pKeys.filter(uid => state.players[uid].choice).length;
+                    actionMsg.innerHTML = `<span class="text-white text-xl bg-slate-800 px-4 py-2 rounded-full border border-slate-600">선택 완료: ${doneCount} / ${pKeys.length} 명</span>`;
+                } else {
+                    actionMsg.classList.add('hidden');
+                }
+            }
+
+            if(state.phase === 'resolved') {
+                title.innerText = "선택 결과";
+                subtitle.innerText = "";
+                resultArea.classList.remove('hidden');
+                
+                resultArea.innerHTML = `
+                    <div class="bg-slate-800 border-4 border-slate-600 p-10 rounded-3xl shadow-2xl text-center animate-divine">
+                        <h2 class="text-4xl font-black text-white leading-tight">${state.lastResult || ''}</h2>
+                    </div>
+                `;
+            }
+
+            if(state.phase === 'resurrection') {
+                document.body.classList.add('resurrection-mode');
+                title.innerHTML = `<span class="text-6xl font-black text-purple-900 drop-shadow-lg">세 번째 날, 부활의 아침!</span>`;
+                subtitle.innerHTML = `<span class="text-2xl font-bold text-slate-700">"나를 위하여 목숨을 잃으면 찾으리라"</span>`;
+                
+                resultArea.classList.remove('hidden');
+                
+                const resPlayer = state.players[state.resurrectedUid];
+                
+                // Calculate final rankings
+                let ranking = [];
+                Object.keys(state.players).forEach(uid => {
+                    const p = state.players[uid];
+                    const isResurrected = (uid === state.resurrectedUid);
+                    const finalScore = p.tokens + calculateResurrectionScore(p.cards || [], isResurrected);
+                    ranking.push({ name: p.name, score: finalScore, isHero: isResurrected });
+                });
+                ranking.sort((a,b) => b.score - a.score);
+
+                let rankingHtml = ranking.map((r, idx) => `
+                    <div class="flex justify-between items-center bg-white bg-opacity-60 p-4 rounded-xl mb-2 ${r.isHero ? 'border-4 border-purple-500 shadow-xl transform scale-105' : 'border border-purple-200'}">
+                        <div class="text-2xl font-black ${r.isHero ? 'text-purple-700' : 'text-slate-700'}">${idx+1}위. ${r.name} ${r.isHero ? '✨(부활)' : ''}</div>
+                        <div class="text-3xl font-black ${r.isHero ? 'text-purple-600' : 'text-slate-600'}">${r.score} 점</div>
+                    </div>
+                `).join('');
+
+                resultArea.innerHTML = `
+                    <div class="bg-white bg-opacity-90 border-8 border-purple-300 p-10 rounded-3xl shadow-2xl text-center w-full animate-divine">
+                        <h3 class="text-3xl font-bold text-slate-600 mb-2">가장 무거운 십자가를 진 사람:</h3>
+                        <h2 class="text-6xl font-black text-red-600 mb-6 drop-shadow-md">${resPlayer ? resPlayer.name : '없음'}</h2>
+                        <div class="text-2xl text-slate-800 font-bold bg-yellow-200 inline-block px-6 py-2 rounded-full mb-8">
+                            모든 마이너스 점수가 플러스(+)로 역전되었습니다!
+                        </div>
+                        <div class="mt-8 text-left w-full max-w-2xl mx-auto h-64 overflow-y-auto pr-4">
+                            ${rankingHtml}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // Helper Functions (Game Rules)
+        // ==========================================
+        
+        // No Thanks Rule: Consecutive numbers only count the lowest (e.g. -15, -16, -17 = only -15 counts)
+        function calculatePenalty(cardsArray) {
+            if(!cardsArray || cardsArray.length === 0) return 0;
+            // Cards are negative (e.g., -15). Sort descending (-10, -15, -20)
+            let sorted = [...cardsArray].sort((a,b) => b - a);
+            let sum = 0;
+            
+            for(let i=0; i<sorted.length; i++) {
+                // If it's the first card, or NOT consecutive to the previous card (diff is not -1)
+                // Wait, if it's -15, consecutive is -16. So sorted[i-1] is -15, sorted[i] is -16.
+                // -16 - (-15) = -1.
+                if(i === 0 || sorted[i] - sorted[i-1] !== -1) {
+                    sum += sorted[i];
+                }
+            }
+            return sum;
+        }
+
+        function calculateResurrectionScore(cardsArray, isResurrected) {
+            let pen = calculatePenalty(cardsArray);
+            if(isResurrected) {
+                return Math.abs(pen); // Convert -35 to +35!
+            } else {
+                return pen; // Keep negative
+            }
+        }
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', initAuth);
+
+    </script>
+</body>
+</html>
