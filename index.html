@@ -9,11 +9,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
-        
-        /* 화면 숨김/표시를 강제로 제어하도록 !important 추가 */
         .screen { display: none !important; }
         .screen.active { display: flex !important; flex-direction: column; flex-grow: 1; position: relative; }
-        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -26,15 +23,10 @@
         <h2 class="text-xl font-bold">서버에 접속 중입니다...</h2>
     </div>
 
-    <!-- ============================================== -->
-    <!-- SCREEN 0: 접속 역할 선택 -->
-    <!-- ============================================== -->
     <div id="screen-login" class="screen h-full items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
             <h1 class="text-3xl font-black text-purple-800 mb-1">✝️ 부활의 아침</h1>
             <h2 class="text-xl font-bold text-slate-600 mb-8">진노의 잔 (Cup of Wrath)</h2>
-            <p class="text-slate-500 mb-6 font-bold">역할을 선택하여 접속하세요</p>
-            
             <div class="space-y-4">
                 <button onclick="showPlayerLogin()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg transition text-xl flex items-center justify-center">
                     <i class="fas fa-mobile-alt mr-3"></i> 참가자 (스마트폰)
@@ -48,7 +40,6 @@
         </div>
     </div>
 
-    <!-- 참가자 이름 입력 모달 -->
     <div id="player-name-modal" class="hidden absolute inset-0 bg-slate-900 bg-opacity-80 z-50 flex items-center justify-center p-4">
         <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
             <h3 class="text-lg font-bold text-slate-800 mb-2">당신의 이름을 입력하세요</h3>
@@ -59,9 +50,6 @@
         </div>
     </div>
 
-    <!-- ============================================== -->
-    <!-- SCREEN 1: 참가자 (모바일) 화면 -->
-    <!-- ============================================== -->
     <div id="screen-player" class="screen h-full bg-slate-100 overflow-y-auto">
         <header class="bg-purple-800 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
             <div class="font-bold text-lg"><i class="fas fa-user mr-2"></i><span id="p-my-name">이름</span></div>
@@ -71,7 +59,7 @@
         </header>
 
         <div class="p-4 flex-grow flex flex-col">
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center mb-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 text-center mb-4 transition-all" id="p-status-container">
                 <h2 class="text-2xl font-black text-purple-700" id="p-status-title">대기 중</h2>
                 <p class="text-sm text-slate-600 mt-2" id="p-status-desc">진행자의 지시를 기다리세요.</p>
             </div>
@@ -85,66 +73,50 @@
         </div>
     </div>
 
-    <!-- ============================================== -->
-    <!-- SCREEN 2: 진행자 (GM) 화면 -->
-    <!-- ============================================== -->
-    <!-- 🚨 오류 수정: 레이아웃 꼬임을 유발하던 클래스를 제거했습니다 🚨 -->
     <div id="screen-gm" class="screen h-full bg-slate-50 overflow-hidden">
         <header class="bg-slate-800 text-white p-3 shadow-sm flex justify-between items-center border-b border-slate-700">
-            <h1 class="text-lg font-black text-slate-200"><i class="fas fa-sliders-h text-yellow-400 mr-2"></i>게임 컨트롤 패널</h1>
+            <h1 class="text-lg font-black text-slate-200"><i class="fas fa-sliders-h text-yellow-400 mr-2"></i>GM 통제실 (턴제)</h1>
             <button onclick="resetGame()" class="bg-red-600 px-3 py-1 rounded text-xs font-bold shadow hover:bg-red-700 transition">데이터 초기화</button>
         </header>
         
         <div class="p-4 flex-grow overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-            
             <div class="bg-white p-5 rounded-xl shadow border border-slate-200 border-l-4 border-l-purple-600 flex flex-col">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h2 class="font-black text-lg text-purple-800">🎮 현재 상태: <span id="gm-current-phase" class="text-slate-600">대기방</span></h2>
                     <span class="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold" id="gm-cup-info">잔: 없음</span>
                 </div>
                 
-                <div class="space-y-3 flex-grow" id="gm-controls">
-                    <button onclick="gmDrawCup()" class="w-full py-3 bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold border border-purple-300 rounded-lg shadow-sm transition">
-                        1. 새로운 진노의 잔 뽑기 (화면 송출)
-                    </button>
-                    <button onclick="gmOpenBidding()" class="w-full py-3 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold border border-blue-300 rounded-lg shadow-sm transition">
-                        2. 참가자 선택 활성화 (마시기 vs 외면)
-                    </button>
-                    <button onclick="gmResolveRound()" class="w-full py-3 bg-red-100 hover:bg-red-200 text-red-800 font-bold border border-red-300 rounded-lg shadow-sm transition">
-                        3. 선택 결과 발표 (누가 잔을 마셨는가?)
+                <div class="space-y-4 flex-grow" id="gm-controls">
+                    <button onclick="gmStartRound()" class="w-full py-4 bg-purple-100 hover:bg-purple-200 text-purple-800 font-black text-lg border border-purple-300 rounded-xl shadow-md transition flex flex-col items-center">
+                        <i class="fas fa-play-circle text-2xl mb-1"></i>
+                        <span>새로운 잔 뽑기 및 라운드 시작</span>
+                        <span class="text-xs font-normal text-purple-600 mt-1">(자동으로 순서를 섞고 턴을 시작합니다)</span>
                     </button>
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-slate-200">
+                <div class="mt-6 pt-4 border-t border-slate-200">
                     <button onclick="gmTriggerResurrection()" class="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black rounded-xl shadow-lg transform transition hover:scale-[1.02] flex justify-center items-center">
-                        <i class="fas fa-sun mr-2"></i> 4. 세 번째 날 (부활의 대반전) 실행!
+                        <i class="fas fa-sun mr-2"></i> 최종장: 부활의 대반전 실행!
                     </button>
                 </div>
             </div>
 
             <div class="bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col">
                 <h2 class="font-bold border-b pb-2 mb-3 flex justify-between items-center">
-                    <div class="flex items-center">
-                        <span>👥 참가자 현황 (<span id="gm-player-count">0</span>명)</span>
-                        <button onclick="gmRefreshPlayers()" class="ml-3 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-1 rounded transition flex items-center shadow-sm">
-                            <i id="btn-refresh-players" class="fas fa-sync-alt mr-1"></i> 새로고침
-                        </button>
-                    </div>
-                    <span class="text-xs text-slate-500 font-normal">🟢:완료 / ⏳:대기중</span>
+                    <span>👥 참가자 현황 (<span id="gm-player-count">0</span>명)</span>
                 </h2>
                 <div id="gm-player-status-list" class="flex-grow overflow-y-auto space-y-2 max-h-80">
-                    <!-- JS renders player status rows -->
-                </div>
+                    </div>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // 🚨 여기에 목사님의 파이어베이스 주소를 넣으세요 🚨
         const myFirebaseConfig = {
             apiKey: "AIzaSyCfyjgtiDVD4Wsd9iGb9tEdrOGFYxxN2Tw",
             authDomain: "kingdomgenius.firebaseapp.com",
@@ -155,12 +127,10 @@
         };
         
         let app, auth, db, docRef;
-        
         if (typeof __firebase_config !== 'undefined' && __firebase_config) {
             app = initializeApp(JSON.parse(__firebase_config));
             db = getFirestore(app);
-            const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-kg-app';
-            docRef = doc(db, 'artifacts', canvasAppId, 'public', 'data', 'room_easter', 'state');
+            docRef = doc(db, 'artifacts', 'kg-app', 'public', 'data', 'room_easter', 'state');
         } else {
             app = initializeApp(myFirebaseConfig);
             db = getFirestore(app);
@@ -172,11 +142,13 @@
         window.myUid = null;
         window.myRole = null; 
         window.gameState = null; 
-        window.isAdminAuthenticated = false;
 
+        // State는 이제 turnOrder와 currentTurnIndex를 관리합니다.
         const DEFAULT_STATE = {
-            phase: 'lobby',
+            phase: 'lobby', // lobby, bidding, resolved, resurrection
             cup: { penalty: 0, tokens: 0 }, 
+            turnOrder: [],
+            currentTurnIndex: 0,
             players: {},    
             lastResult: null,
             resurrectedUid: null
@@ -184,25 +156,13 @@
 
         async function initAuth() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth error:", error);
-                alert("인증 오류가 발생했습니다: " + error.message);
-                document.getElementById('loading-overlay').classList.add('hidden');
-            }
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
+            } catch (error) { alert("인증 오류가 발생했습니다: " + error.message); document.getElementById('loading-overlay').classList.add('hidden'); }
         }
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                window.myUid = user.uid;
-                document.getElementById('loading-overlay').classList.add('hidden');
-                switchScreen('screen-login');
-                setupRealtimeListener();
-            }
+            if (user) { window.myUid = user.uid; document.getElementById('loading-overlay').classList.add('hidden'); switchScreen('screen-login'); setupRealtimeListener(); }
         });
 
         async function setupRealtimeListener() {
@@ -211,15 +171,9 @@
                 const snap = await getDoc(docRef);
                 if (!snap.exists()) await setDoc(docRef, DEFAULT_STATE);
                 onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        window.gameState = docSnap.data();
-                        updateUIBasedOnRole();
-                    }
+                    if (docSnap.exists()) { window.gameState = docSnap.data(); updateUIBasedOnRole(); }
                 });
-            } catch(e) {
-                console.error("Firestore setup error:", e);
-                alert("데이터베이스 접근 권한이 없습니다. Firebase 규칙 설정을 확인해주세요.");
-            }
+            } catch(e) { alert("데이터베이스 접근 권한이 없습니다."); }
         }
 
         window.switchScreen = (screenId) => {
@@ -228,57 +182,37 @@
         };
 
         window.checkGMAndSetRole = () => {
-            const pwd = prompt("진행자(GM) 접속 비밀번호를 입력하세요.");
-            if (pwd === "1004") {
-                window.isAdminAuthenticated = true;
-                window.myRole = 'gm';
-                switchScreen('screen-gm');
-                updateUIBasedOnRole();
-            } else if (pwd !== null) {
-                alert("❌ 비밀번호가 틀렸습니다.");
-            }
+            const pwd = prompt("진행자(GM) 접속 비밀번호를 입력하세요.\n(기본: 1004)");
+            if (pwd === "1004") { window.myRole = 'gm'; switchScreen('screen-gm'); updateUIBasedOnRole(); } 
+            else if (pwd !== null) alert("❌ 비밀번호가 틀렸습니다.");
         };
 
-        window.showPlayerLogin = () => {
-            document.getElementById('player-name-modal').classList.remove('hidden');
-        };
+        window.showPlayerLogin = () => { document.getElementById('player-name-modal').classList.remove('hidden'); };
 
         window.joinAsPlayer = async () => {
             const nameInput = document.getElementById('player-name-input').value.trim();
             if(!nameInput) return alert("이름을 입력하세요.");
-            
             document.getElementById('player-name-modal').classList.add('hidden');
             window.myRole = 'player';
             
             if (!window.gameState) window.gameState = JSON.parse(JSON.stringify(DEFAULT_STATE)); 
-            
             let players = window.gameState.players || {};
             let existingUid = Object.keys(players).find(uid => players[uid].name === nameInput);
 
             if (existingUid) {
-                if (existingUid !== window.myUid) {
-                    players[window.myUid] = players[existingUid];
-                    delete players[existingUid];
-                }
-                alert(`환영합니다! 기존 데이터(눈물 ${players[window.myUid].tokens}개)가 복구되었습니다.`);
+                if (existingUid !== window.myUid) { players[window.myUid] = players[existingUid]; delete players[existingUid]; }
             } else {
-                if(!players[window.myUid]) {
-                    players[window.myUid] = { name: nameInput, tokens: 15, cards: [], choice: null, connected: true };
-                }
+                if(!players[window.myUid]) players[window.myUid] = { name: nameInput, tokens: 15, cards: [], connected: true };
             }
             
             try {
                 let updateData = { players: players };
                 if (!window.gameState.cup) updateData.cup = { penalty: 0, tokens: 0 };
                 if (!window.gameState.phase) updateData.phase = 'lobby';
-
                 await setDoc(docRef, updateData, { merge: true });
                 switchScreen('screen-player');
-                updateUIBasedOnRole();
             } catch (error) {
-                alert("서버 저장 실패! 파이어베이스 설정 및 규칙을 확인하세요.");
-                window.myRole = null;
-                switchScreen('screen-login');
+                alert("서버 저장 실패!"); window.myRole = null; switchScreen('screen-login');
             }
         };
 
@@ -289,7 +223,7 @@
         }
 
         // ==========================================
-        // PLAYER UI LOGIC
+        // 참가자 화면 로직 (턴제 맞춤형 변경)
         // ==========================================
         function updatePlayerUI() {
             const state = window.gameState || DEFAULT_STATE;
@@ -298,61 +232,95 @@
             if(!myData) return;
 
             const phase = state.phase || 'lobby';
-
             document.getElementById('p-my-name').innerText = myData.name || "참가자";
             document.getElementById('p-my-tokens').innerText = myData.tokens || 0;
-            
-            let penaltySum = calculatePenalty(myData.cards || []);
-            document.getElementById('p-my-cards-sum').innerText = `${penaltySum} 점`;
+            document.getElementById('p-my-cards-sum').innerText = `${calculatePenalty(myData.cards || [])} 점`;
 
             const title = document.getElementById('p-status-title');
             const desc = document.getElementById('p-status-desc');
             const actionArea = document.getElementById('p-action-area');
-            
+            const statusContainer = document.getElementById('p-status-container');
             actionArea.innerHTML = '';
 
-            switch(phase) {
-                case 'lobby':
-                    title.innerText = "대기 중"; desc.innerText = "게임을 준비하고 있습니다.";
-                    break;
-                case 'drawn':
-                    title.innerText = "진노의 잔 등장"; title.className = "text-2xl font-black text-red-600";
-                    desc.innerText = "스크린의 마이너스 잔을 확인하세요!";
-                    break;
-                case 'bidding':
-                    title.innerText = "선택의 시간"; title.className = "text-2xl font-black text-purple-700";
-                    desc.innerText = "잔을 외면할지, 마실지 선택하세요.";
-                    if(myData.choice) {
-                        actionArea.innerHTML = `<div class="bg-slate-200 rounded-xl p-8 text-center border-2 border-slate-300"><h3 class="text-2xl font-bold text-slate-700">선택 완료</h3><p class="text-slate-500 mt-2">다른 사람들을 기다립니다...</p></div>`;
-                    } else {
-                        const canPass = myData.tokens > 0;
-                        actionArea.innerHTML = `
-                            <div class="flex flex-col gap-4 mt-4">
-                                <button onclick="window.submitAction('pass')" class="w-full ${canPass ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-300 cursor-not-allowed'} text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 ${canPass ? 'border-blue-700' : 'border-slate-400'} transition" ${!canPass ? 'disabled' : ''}>
-                                    ${canPass ? '➡️ 외면하기 (눈물 -1)' : '눈물이 부족합니다'}
-                                </button>
-                                <button onclick="window.submitAction('drink')" class="w-full bg-red-600 hover:bg-red-700 text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 border-red-800 transition mt-2">🍷 잔 마시기 (십자가 지기)</button>
-                            </div>
-                        `;
-                    }
-                    break;
-                case 'resolved':
-                    title.innerText = "결과 발표"; desc.innerText = "스크린에서 누가 잔을 마셨는지 확인하세요.";
-                    break;
-                case 'resurrection':
-                    title.innerText = "부활의 아침!"; title.className = "text-3xl font-black text-yellow-500";
-                    let finalScore = (myData.tokens || 0) + calculateResurrectionScore(myData.cards || [], state.resurrectedUid === window.myUid);
-                    desc.innerHTML = `최종 점수: <b class="text-2xl text-purple-800">${finalScore}점</b><br>화면을 확인하세요!`;
-                    break;
+            // 기본 배경색
+            statusContainer.classList.remove('bg-purple-100', 'border-purple-400');
+            statusContainer.classList.add('bg-white', 'border-slate-200');
+
+            if (phase === 'lobby') {
+                title.innerText = "대기 중"; title.className = "text-2xl font-black text-purple-700";
+                desc.innerText = "게임을 준비하고 있습니다.";
+            } else if (phase === 'bidding') {
+                const currentUid = state.turnOrder[state.currentTurnIndex];
+                const isMyTurn = (currentUid === window.myUid);
+                const currentName = players[currentUid] ? players[currentUid].name : '누군가';
+
+                if (isMyTurn) {
+                    statusContainer.classList.remove('bg-white', 'border-slate-200');
+                    statusContainer.classList.add('bg-purple-100', 'border-purple-400'); // 내 턴일때 강조
+                    title.innerText = "당신의 차례입니다!"; 
+                    title.className = "text-3xl font-black text-purple-700 animate-pulse";
+                    desc.innerHTML = `현재 잔: <strong class="text-red-600 text-lg">${state.cup.penalty}</strong> (눈물 <strong class="text-blue-600">${state.cup.tokens}</strong>개)`;
+
+                    const canPass = myData.tokens > 0;
+                    actionArea.innerHTML = `
+                        <div class="flex flex-col gap-4 mt-2">
+                            <button onclick="window.submitAction('pass')" class="w-full ${canPass ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-400 cursor-not-allowed'} text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 ${canPass ? 'border-blue-700' : 'border-slate-500'} transition" ${!canPass ? 'disabled' : ''}>
+                                ${canPass ? '➡️ 외면하기 (눈물 -1)' : '❌ 눈물 0개 (외면 불가)'}
+                            </button>
+                            <button onclick="window.submitAction('drink')" class="w-full bg-red-600 hover:bg-red-700 text-white font-black text-2xl py-6 rounded-xl shadow-lg border-b-4 border-red-800 transition mt-2">
+                                🍷 잔 마시기 (십자가 지기)
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    title.innerText = "다른 사람의 차례"; title.className = "text-xl font-bold text-slate-500";
+                    desc.innerHTML = `<span class="text-2xl font-black text-purple-600">${currentName}</span> 님의 선택을 기다리는 중...`;
+                    actionArea.innerHTML = `<div class="flex justify-center mt-10"><i class="fas fa-hourglass-half text-6xl text-slate-300 animate-spin"></i></div>`;
+                }
+            } else if (phase === 'resolved') {
+                title.innerText = "결과 발표"; title.className = "text-2xl font-black text-slate-700";
+                desc.innerText = "스크린에서 누가 잔을 마셨는지 확인하세요.";
+            } else if (phase === 'resurrection') {
+                title.innerText = "부활의 아침!"; title.className = "text-3xl font-black text-yellow-500";
+                let finalScore = (myData.tokens || 0) + calculateResurrectionScore(myData.cards || [], state.resurrectedUid === window.myUid);
+                desc.innerHTML = `최종 점수: <b class="text-2xl text-purple-800">${finalScore}점</b><br>화면을 확인하세요!`;
             }
         }
 
+        // ==========================================
+        // 참가자 액션 처리 (자동 턴 넘김 & 자동 결과 처리)
+        // ==========================================
         window.submitAction = async (action) => {
             const state = window.gameState;
             let players = state.players || {};
-            if(action === 'pass' && (players[window.myUid].tokens <= 0)) return alert("토큰(눈물)이 부족합니다!");
-            players[window.myUid].choice = action;
-            await setDoc(docRef, { players: players }, { merge: true });
+            let cup = state.cup;
+
+            if (action === 'pass') {
+                if (players[window.myUid].tokens <= 0) return;
+                // 토큰 차감 및 잔에 추가
+                players[window.myUid].tokens -= 1;
+                cup.tokens += 1;
+                // 턴을 다음 사람으로 넘김 (배열 길이로 나머지 연산 = 무한 순환)
+                let nextIndex = (state.currentTurnIndex + 1) % state.turnOrder.length;
+                await setDoc(docRef, { players: players, cup: cup, currentTurnIndex: nextIndex }, { merge: true });
+            } 
+            else if (action === 'drink') {
+                let winner = players[window.myUid];
+                if (!winner.cards) winner.cards = [];
+                winner.cards.push(cup.penalty);
+                winner.cards.sort((a,b) => b - a); // 내림차순 정렬
+                winner.tokens += cup.tokens;
+
+                let lastResult = `<span class="text-red-500 font-black">${winner.name}</span>님이<br>잔을 마셨습니다!<br><span class="text-3xl text-slate-300 mt-4 block">패널티 ${cup.penalty} / 눈물 ${cup.tokens}개 획득</span>`;
+                
+                // 마신 순간 라운드 자동 종료
+                await setDoc(docRef, { 
+                    phase: 'resolved', 
+                    players: players, 
+                    cup: { penalty: 0, tokens: 0 }, 
+                    lastResult: lastResult 
+                }, { merge: true });
+            }
         };
 
         // ==========================================
@@ -367,7 +335,7 @@
             const pKeys = Object.keys(players);
             document.getElementById('gm-player-count').innerText = pKeys.length;
             
-            const phaseNames = { lobby:'대기방', drawn:'잔 뽑힘', bidding:'선택 진행중', resolved:'결과 송출됨', resurrection:'부활 완료' };
+            const phaseNames = { lobby:'대기방', bidding:'턴 진행 중 (루핑)', resolved:'라운드 종료', resurrection:'부활 완료' };
             document.getElementById('gm-current-phase').innerText = phaseNames[phase] || phase;
             
             if(cup.penalty < 0) {
@@ -381,82 +349,44 @@
             const statusList = document.getElementById('gm-player-status-list');
             statusList.innerHTML = '';
             
+            const currentUid = state.turnOrder ? state.turnOrder[state.currentTurnIndex] : null;
+
             pKeys.forEach(uid => {
                 const p = players[uid];
                 const cCards = p.cards || [];
-                const statusIcon = p.choice ? '<span class="text-green-500">🟢 완료</span>' : '<span class="text-yellow-500 animate-pulse">⏳ 대기중</span>';
+                const isTurn = (uid === currentUid && phase === 'bidding');
+                const statusIcon = isTurn ? '<span class="text-yellow-500 font-bold animate-pulse">▶ 이 사람 턴</span>' : '<span class="text-slate-400">대기</span>';
+                
                 statusList.innerHTML += `
-                    <div class="bg-slate-50 border rounded p-3 text-sm flex justify-between items-center">
-                        <div class="font-bold text-slate-800 w-1/3 truncate">${p.name}</div>
-                        <div class="text-xs text-slate-500 w-1/3 text-center">눈물:${p.tokens} / 패널티:${calculatePenalty(cCards)}</div>
-                        <div class="w-1/3 text-right font-bold">${phase === 'bidding' ? statusIcon : (p.choice || '-')}</div>
+                    <div class="border rounded p-3 text-sm flex justify-between items-center ${isTurn ? 'bg-yellow-50 border-yellow-400' : 'bg-slate-50'}">
+                        <div class="font-bold ${isTurn ? 'text-yellow-700' : 'text-slate-800'} w-1/3 truncate">${p.name}</div>
+                        <div class="text-xs text-slate-500 w-1/3 text-center">눈물:${p.tokens} / 십자가:${calculatePenalty(cCards)}</div>
+                        <div class="w-1/3 text-right">${statusIcon}</div>
                     </div>
                 `;
             });
         }
 
-        window.gmRefreshPlayers = async () => {
-            const btnIcon = document.getElementById('btn-refresh-players');
-            if(btnIcon) btnIcon.classList.add('fa-spin');
-            try {
-                const snap = await getDoc(docRef);
-                if (snap.exists()) {
-                    window.gameState = snap.data();
-                    updateUIBasedOnRole();
-                }
-            } catch (error) { alert("서버 연결에 실패했습니다."); } 
-            finally { if(btnIcon) setTimeout(() => btnIcon.classList.remove('fa-spin'), 500); }
-        };
-
-        window.gmDrawCup = async () => {
-            const state = window.gameState || DEFAULT_STATE;
-            const cup = state.cup || { penalty: 0, tokens: 0 };
-            const penalty = -1 * (Math.floor(Math.random() * 25) + 11);
-            let players = state.players || {};
-            Object.keys(players).forEach(uid => players[uid].choice = null);
-            await setDoc(docRef, { phase: 'drawn', cup: { penalty: penalty, tokens: cup.tokens || 0 }, players: players, lastResult: null }, { merge: true });
-        };
-
-        window.gmOpenBidding = async () => {
-            await setDoc(docRef, { phase: 'bidding' }, { merge: true });
-        };
-
-        window.gmResolveRound = async () => {
+        // 라운드 시작 (순서 섞고 잔 생성)
+        window.gmStartRound = async () => {
             const state = window.gameState || DEFAULT_STATE;
             let players = state.players || {};
-            let cup = state.cup || { penalty: 0, tokens: 0 };
-            let lastResult = "";
-            let drinkers = [], passers = [];
+            const pKeys = Object.keys(players);
+            if(pKeys.length === 0) return alert("접속한 참가자가 없습니다!");
+
+            // -1 ~ -20 무작위 생성
+            const penalty = -1 * (Math.floor(Math.random() * 20) + 1);
             
-            Object.keys(players).forEach(uid => {
-                if(players[uid].choice === 'drink') drinkers.push(uid);
-                else if(players[uid].choice === 'pass') passers.push(uid);
-            });
+            // 접속한 사람들로 순서 배열 만들고 무작위로 섞기
+            let turnOrder = [...pKeys].sort(() => 0.5 - Math.random());
 
-            if(drinkers.length === 0) {
-                passers.forEach(uid => { players[uid].tokens -= 1; });
-                cup.tokens += passers.length;
-                lastResult = `모두가 외면했습니다. 잔에 눈물 ${passers.length}개가 추가됩니다!`;
-                Object.keys(players).forEach(uid => players[uid].choice = null);
-                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
-            } else {
-                const winnerUid = drinkers[Math.floor(Math.random() * drinkers.length)];
-                const winner = players[winnerUid];
-                passers.forEach(uid => { players[uid].tokens -= 1; });
-                cup.tokens += passers.length;
-                
-                if(!winner.cards) winner.cards = [];
-                winner.cards.push(cup.penalty);
-                winner.cards.sort((a,b) => b - a);
-                winner.tokens += cup.tokens;
-                
-                let clashMsg = drinkers.length > 1 ? ` (경쟁 끝에 당첨!)` : ``;
-                lastResult = `<span class="text-red-500 font-black">${winner.name}</span>님이 잔을 마셨습니다!${clashMsg}<br>패널티 ${cup.penalty}와 눈물 ${cup.tokens}개 획득!`;
-                
-                cup = { penalty: 0, tokens: 0 };
-                Object.keys(players).forEach(uid => players[uid].choice = null);
-                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
-            }
+            await setDoc(docRef, { 
+                phase: 'bidding', 
+                cup: { penalty: penalty, tokens: 0 },
+                turnOrder: turnOrder,
+                currentTurnIndex: 0,
+                lastResult: null
+            }, { merge: true });
         };
 
         window.gmTriggerResurrection = async () => {
@@ -472,15 +402,13 @@
         };
 
         window.resetGame = async () => {
-            if(confirm("모든 데이터를 지울까요? (오류 발생 시 누르면 해결됩니다)")) {
-                await setDoc(docRef, DEFAULT_STATE);
-                alert("정상적으로 초기화되었습니다.");
-            }
+            if(confirm("모든 데이터를 지울까요?")) await setDoc(docRef, DEFAULT_STATE);
         };
 
+        // 연속된 숫자는 제일 작은(절댓값 큰) 1개만 카운트하는 룰 적용 계산기
         function calculatePenalty(cardsArray) {
             if(!cardsArray || cardsArray.length === 0) return 0;
-            let sorted = [...cardsArray].sort((a,b) => b - a);
+            let sorted = [...cardsArray].sort((a,b) => b - a); // 내림차순 정렬 (-1, -2, -3)
             let sum = 0;
             for(let i=0; i<sorted.length; i++) {
                 if(i === 0 || sorted[i] - sorted[i-1] !== -1) sum += sorted[i];
