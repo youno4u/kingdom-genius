@@ -9,8 +9,11 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap');
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
-        .screen { display: none; }
-        .screen.active { display: flex; flex-direction: column; flex-grow: 1; position: relative; }
+        
+        /* 화면 숨김/표시를 강제로 제어하도록 !important 추가 */
+        .screen { display: none !important; }
+        .screen.active { display: flex !important; flex-direction: column; flex-grow: 1; position: relative; }
+        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -85,7 +88,8 @@
     <!-- ============================================== -->
     <!-- SCREEN 2: 진행자 (GM) 화면 -->
     <!-- ============================================== -->
-    <div id="screen-gm" class="screen h-full bg-slate-50 overflow-hidden flex flex-col">
+    <!-- 🚨 오류 수정: 레이아웃 꼬임을 유발하던 클래스를 제거했습니다 🚨 -->
+    <div id="screen-gm" class="screen h-full bg-slate-50 overflow-hidden">
         <header class="bg-slate-800 text-white p-3 shadow-sm flex justify-between items-center border-b border-slate-700">
             <h1 class="text-lg font-black text-slate-200"><i class="fas fa-sliders-h text-yellow-400 mr-2"></i>게임 컨트롤 패널</h1>
             <button onclick="resetGame()" class="bg-red-600 px-3 py-1 rounded text-xs font-bold shadow hover:bg-red-700 transition">데이터 초기화</button>
@@ -224,7 +228,7 @@
         };
 
         window.checkGMAndSetRole = () => {
-            const pwd = prompt("진행자(GM) 접속 비밀번호를 입력하세요.\n(기본 비밀번호: 1004)");
+            const pwd = prompt("진행자(GM) 접속 비밀번호를 입력하세요.");
             if (pwd === "1004") {
                 window.isAdminAuthenticated = true;
                 window.myRole = 'gm';
