@@ -219,7 +219,7 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =====================================================================
-        // 🚨 Firebase 설정 (오류 수정 및 올바른 경로 반영)
+        // 🚨 Firebase 설정
         // =====================================================================
         const myFirebaseConfig = {
             apiKey: "AIzaSyCfyjgtiDVD4Wsd9iGb9tEdrOGFYxxN2Tw",
@@ -236,14 +236,10 @@
             app = initializeApp(JSON.parse(__firebase_config));
             db = getFirestore(app);
             const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-kg-app';
-            // 🚨 [오류 해결 핵심]: Firestore 문서는 반드시 짝수 개의 경로(폴더-파일)를 가져야 합니다.
-            // 기존 5개 경로에서 마지막에 'state'를 추가하여 6개(짝수)로 완벽하게 수정했습니다.
             docRef = doc(db, 'artifacts', canvasAppId, 'public', 'data', 'room_easter', 'state');
         } else {
-            // 실제 웹 호스팅 환경 (목사님의 깃헙 등)
             app = initializeApp(myFirebaseConfig);
             db = getFirestore(app);
-            // 여기도 짝수(4개) 경로로 명확히 지정
             docRef = doc(db, 'kingdom_genius_games', 'easter_room', 'data', 'state');
         }
         
@@ -264,7 +260,8 @@
                 }
             } catch (error) {
                 console.error("Auth error:", error);
-                alert("인증 오류가 발생했습니다.");
+                alert("인증 오류가 발생했습니다: " + error.message);
+                document.getElementById('loading-overlay').classList.add('hidden');
             }
         }
 
@@ -277,26 +274,32 @@
             }
         });
 
-        // 2. State Management
+        // 2. State Management (초기화 구조 보강)
         const DEFAULT_STATE = {
             phase: 'lobby', // lobby, drawn, bidding, resolved, resurrection
-            cup: { penalty: 0, tokens: 0 }, // Current active cup
-            players: {},    // { uid: { name, tokens: 15, cards: [], choice: null, connected: true } }
-            lastResult: null // Store result text to display
+            cup: { penalty: 0, tokens: 0 }, 
+            players: {},    
+            lastResult: null,
+            resurrectedUid: null
         };
 
         async function setupRealtimeListener() {
             if (!window.myUid || !docRef) return;
 
-            const snap = await getDoc(docRef);
-            if (!snap.exists()) await setDoc(docRef, DEFAULT_STATE);
+            try {
+                const snap = await getDoc(docRef);
+                if (!snap.exists()) await setDoc(docRef, DEFAULT_STATE);
 
-            onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    window.gameState = docSnap.data();
-                    updateUIBasedOnRole();
-                }
-            }, (error) => console.error("Snapshot error:", error));
+                onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        window.gameState = docSnap.data();
+                        updateUIBasedOnRole();
+                    }
+                }, (error) => console.error("Snapshot error:", error));
+            } catch(e) {
+                console.error("Firestore setup error:", e);
+                alert("데이터베이스 접근 권한이 없습니다. Firebase 규칙 설정을 확인해주세요.");
+            }
         }
 
         // Global HTML UI Functions
@@ -318,6 +321,9 @@
             document.getElementById('player-name-modal').classList.remove('hidden');
         };
 
+        // ==========================================
+        // 참가자 접속 로직 (초기화 타이밍 꼬임 방지 완벽 적용)
+        // ==========================================
         window.joinAsPlayer = async () => {
             const nameInput = document.getElementById('player-name-input').value.trim();
             if(!nameInput) return alert("이름을 입력하세요.");
@@ -325,26 +331,58 @@
             document.getElementById('player-name-modal').classList.add('hidden');
             window.myRole = 'player';
             
+            // 만약 데이터베이스가 아직 생성 전이라면, 완벽한 DEFAULT_STATE 형태로 틀을 먼저 잡아줍니다!
+            if (!window.gameState) {
+                window.gameState = JSON.parse(JSON.stringify(DEFAULT_STATE)); 
+            }
+            
             let players = window.gameState.players || {};
+            
             if(!players[window.myUid]) {
                 players[window.myUid] = { name: nameInput, tokens: 15, cards: [], choice: null, connected: true };
             }
-            await setDoc(docRef, { players: players }, { merge: true });
-            switchScreen('screen-player');
+            
+            try {
+                // merge: true 시 비어있는 다른 필드(cup 등)가 날아가는 것을 방지하기 위해 
+                // 빈 데이터베이스라면 전체 DEFAULT_STATE 뼈대를 같이 덮어씌워줍니다.
+                let updateData = { players: players };
+                if (!window.gameState.cup) updateData.cup = { penalty: 0, tokens: 0 };
+                if (!window.gameState.phase) updateData.phase = 'lobby';
+
+                await setDoc(docRef, updateData, { merge: true });
+                switchScreen('screen-player');
+                updateUIBasedOnRole();
+            } catch (error) {
+                console.error("참가자 접속 에러:", error);
+                alert("서버 저장 실패! 파이어베이스 [Firestore Database] -> [규칙] 설정이 필요합니다.");
+                window.myRole = null;
+                switchScreen('screen-login');
+            }
         };
+
+        function updateUIBasedOnRole() {
+            if(!window.gameState) return;
+            
+            if(window.myRole === 'player') updatePlayerUI();
+            if(window.myRole === 'gm') updateGMUI();
+            if(window.myRole === 'display') updateDisplayUI();
+        }
 
         // ==========================================
         // PLAYER UI LOGIC
         // ==========================================
         function updatePlayerUI() {
-            const state = window.gameState;
-            const myData = state.players[window.myUid];
+            // Null-safe Fallback 보강
+            const state = window.gameState || DEFAULT_STATE;
+            const players = state.players || {};
+            const myData = players[window.myUid];
             if(!myData) return;
 
-            document.getElementById('p-my-name').innerText = myData.name;
-            document.getElementById('p-my-tokens').innerText = myData.tokens;
+            const phase = state.phase || 'lobby';
+
+            document.getElementById('p-my-name').innerText = myData.name || "참가자";
+            document.getElementById('p-my-tokens').innerText = myData.tokens || 0;
             
-            // Calculate penalty sum based on "No Thanks" rules (consecutive numbers = only lowest counts)
             let penaltySum = calculatePenalty(myData.cards || []);
             document.getElementById('p-my-cards-sum').innerText = `${penaltySum} 점`;
 
@@ -354,7 +392,7 @@
             
             actionArea.innerHTML = '';
 
-            switch(state.phase) {
+            switch(phase) {
                 case 'lobby':
                     title.innerText = "대기 중"; desc.innerText = "게임을 준비하고 있습니다.";
                     break;
@@ -396,7 +434,7 @@
                     title.innerText = "부활의 아침!";
                     title.className = "text-3xl font-black text-yellow-500";
                     
-                    let finalScore = myData.tokens + calculateResurrectionScore(myData.cards, state.resurrectedUid === window.myUid);
+                    let finalScore = (myData.tokens || 0) + calculateResurrectionScore(myData.cards || [], state.resurrectedUid === window.myUid);
                     desc.innerHTML = `최종 점수: <b class="text-2xl text-purple-800">${finalScore}점</b><br>화면을 확인하세요!`;
                     break;
             }
@@ -404,29 +442,32 @@
 
         window.submitAction = async (action) => {
             const state = window.gameState;
-            let players = state.players;
+            let players = state.players || {};
             
-            // Validation
-            if(action === 'pass' && players[window.myUid].tokens <= 0) return alert("토큰(눈물)이 부족합니다!");
+            if(action === 'pass' && (players[window.myUid].tokens <= 0)) return alert("토큰(눈물)이 부족합니다!");
             
             players[window.myUid].choice = action;
             await setDoc(docRef, { players: players }, { merge: true });
         };
 
         // ==========================================
-        // GM UI LOGIC
+        // GM UI LOGIC (오류 방어 로직 전면 적용)
         // ==========================================
         function updateGMUI() {
-            const state = window.gameState;
+            // Null-safe Fallback
+            const state = window.gameState || DEFAULT_STATE;
+            const players = state.players || {};
+            const cup = state.cup || { penalty: 0, tokens: 0 };
+            const phase = state.phase || 'lobby';
             
-            const pKeys = Object.keys(state.players || {});
+            const pKeys = Object.keys(players);
             document.getElementById('gm-player-count').innerText = pKeys.length;
             
             const phaseNames = { lobby:'대기방', drawn:'잔 뽑힘', bidding:'선택 진행중', resolved:'결과 송출됨', resurrection:'부활 완료' };
-            document.getElementById('gm-current-phase').innerText = phaseNames[state.phase] || state.phase;
+            document.getElementById('gm-current-phase').innerText = phaseNames[phase] || phase;
             
-            if(state.cup.penalty < 0) {
-                document.getElementById('gm-cup-info').innerText = `현재 잔: ${state.cup.penalty} (눈물 ${state.cup.tokens}개)`;
+            if(cup.penalty < 0) {
+                document.getElementById('gm-cup-info').innerText = `현재 잔: ${cup.penalty} (눈물 ${cup.tokens}개)`;
                 document.getElementById('gm-cup-info').className = "bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold";
             } else {
                 document.getElementById('gm-cup-info').innerText = "잔: 없음";
@@ -437,7 +478,7 @@
             statusList.innerHTML = '';
             
             pKeys.forEach(uid => {
-                const p = state.players[uid];
+                const p = players[uid];
                 const cCards = p.cards || [];
                 const statusIcon = p.choice ? '<span class="text-green-500">🟢 완료</span>' : '<span class="text-yellow-500 animate-pulse">⏳ 고민중</span>';
                 
@@ -445,24 +486,23 @@
                     <div class="bg-slate-50 border rounded p-3 text-sm flex justify-between items-center">
                         <div class="font-bold text-slate-800 w-1/3 truncate">${p.name}</div>
                         <div class="text-xs text-slate-500 w-1/3 text-center">눈물:${p.tokens} / 패널티:${calculatePenalty(cCards)}</div>
-                        <div class="w-1/3 text-right font-bold">${state.phase === 'bidding' ? statusIcon : (p.choice || '-')}</div>
+                        <div class="w-1/3 text-right font-bold">${phase === 'bidding' ? statusIcon : (p.choice || '-')}</div>
                     </div>
                 `;
             });
         }
 
         window.gmDrawCup = async () => {
-            const state = window.gameState;
-            // Generate random penalty between -11 and -35
+            const state = window.gameState || DEFAULT_STATE;
+            const cup = state.cup || { penalty: 0, tokens: 0 };
             const penalty = -1 * (Math.floor(Math.random() * 25) + 11);
+            let players = state.players || {};
             
-            let players = state.players;
-            // Reset choices
             Object.keys(players).forEach(uid => players[uid].choice = null);
 
             await setDoc(docRef, { 
                 phase: 'drawn', 
-                cup: { penalty: penalty, tokens: state.cup.tokens || 0 }, // carry over tokens if nobody drank last time? No, in real game tokens carry over ONLY if all pass. Draw is fresh or continues.
+                cup: { penalty: penalty, tokens: cup.tokens || 0 },
                 players: players,
                 lastResult: null
             }, { merge: true });
@@ -473,11 +513,10 @@
         };
 
         window.gmResolveRound = async () => {
-            const state = window.gameState;
-            let players = state.players;
-            let cup = state.cup;
+            const state = window.gameState || DEFAULT_STATE;
+            let players = state.players || {};
+            let cup = state.cup || { penalty: 0, tokens: 0 };
             let lastResult = "";
-            
             let drinkers = [];
             let passers = [];
             
@@ -487,136 +526,113 @@
             });
 
             if(drinkers.length === 0) {
-                // All passed. Everyone loses 1 token to cup.
                 passers.forEach(uid => { players[uid].tokens -= 1; });
                 cup.tokens += passers.length;
                 lastResult = `모두가 외면했습니다. 잔에 눈물 ${passers.length}개가 추가됩니다!`;
-                
-                // Reset choices, keep cup, go back to drawn
                 Object.keys(players).forEach(uid => players[uid].choice = null);
-                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
                 
+                await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
             } else {
-                // One or more drank.
-                // If multiple drank, pick one randomly to take the cup (simultaneous collision breaker).
                 const winnerUid = drinkers[Math.floor(Math.random() * drinkers.length)];
                 const winner = players[winnerUid];
-                
-                // Those who passed pay 1. (Drinkers don't pay, even if they clashed and didn't get it).
                 passers.forEach(uid => { players[uid].tokens -= 1; });
-                cup.tokens += passers.length; // Add this turn's passes to cup before giving it away
+                cup.tokens += passers.length;
                 
-                // Winner takes cup penalty and ALL tokens
                 if(!winner.cards) winner.cards = [];
                 winner.cards.push(cup.penalty);
-                winner.cards.sort((a,b) => b - a); // sort descending (e.g. -10, -15, -20)
+                winner.cards.sort((a,b) => b - a);
                 winner.tokens += cup.tokens;
                 
                 let clashMsg = drinkers.length > 1 ? ` (치열한 경쟁 끝에 당첨!)` : ``;
                 lastResult = `<span class="text-red-500 font-black">${winner.name}</span>님이 잔을 마셨습니다!${clashMsg}<br>패널티 ${cup.penalty}와 눈물 ${cup.tokens}개 획득!`;
                 
-                // Reset Cup
                 cup = { penalty: 0, tokens: 0 };
                 Object.keys(players).forEach(uid => players[uid].choice = null);
+                
                 await setDoc(docRef, { phase: 'resolved', cup: cup, players: players, lastResult: lastResult }, { merge: true });
             }
         };
 
         window.gmTriggerResurrection = async () => {
             if(!confirm("진짜 부활의 반전을 실행하시겠습니까? 십자가를 가장 많이 진 사람이 승리합니다!")) return;
-            
-            const state = window.gameState;
-            let players = state.players;
-            
-            // Find who took the MOST penalty (lowest card sum)
-            let maxPenalty = 0; // Absolute value of penalty
+            const state = window.gameState || DEFAULT_STATE;
+            let players = state.players || {};
+            let maxPenalty = 0;
             let resurrectedUid = null;
             
             Object.keys(players).forEach(uid => {
                 let pen = Math.abs(calculatePenalty(players[uid].cards || []));
-                if(pen > maxPenalty) {
-                    maxPenalty = pen;
-                    resurrectedUid = uid;
-                }
+                if(pen > maxPenalty) { maxPenalty = pen; resurrectedUid = uid; }
             });
 
             await setDoc(docRef, { phase: 'resurrection', resurrectedUid: resurrectedUid }, { merge: true });
         };
 
         window.resetGame = async () => {
-            if(confirm("모든 데이터를 지울까요?")) {
+            if(confirm("모든 데이터를 지울까요? (오류 발생 시 누르면 해결됩니다)")) {
                 await setDoc(docRef, DEFAULT_STATE);
+                alert("정상적으로 초기화되었습니다.");
             }
         };
 
         // ==========================================
-        // DISPLAY UI LOGIC (대형 스크린)
+        // DISPLAY UI LOGIC
         // ==========================================
         function updateDisplayUI() {
-            const state = window.gameState;
+            const state = window.gameState || DEFAULT_STATE;
+            const phase = state.phase || 'lobby';
+            const cup = state.cup || { penalty: 0, tokens: 0 };
+            const players = state.players || {};
+            
             const title = document.getElementById('disp-main-title');
             const subtitle = document.getElementById('disp-sub-title');
             const cupArea = document.getElementById('disp-cup-area');
             const resultArea = document.getElementById('disp-result-area');
             
-            cupArea.classList.add('hidden');
-            resultArea.classList.add('hidden');
+            cupArea.classList.add('hidden'); resultArea.classList.add('hidden');
             document.body.classList.remove('resurrection-mode');
 
-            if(state.phase === 'lobby') {
-                const pKeys = Object.keys(state.players || {});
+            if(phase === 'lobby') {
+                const pKeys = Object.keys(players);
                 title.innerText = "부활의 아침: 진노의 잔";
                 subtitle.innerHTML = `스마트폰으로 접속하세요. (현재 ${pKeys.length}명 접속 중)`;
                 return;
             }
 
-            if(state.phase === 'drawn' || state.phase === 'bidding') {
-                title.innerText = state.phase === 'drawn' ? "새로운 잔이 나타났습니다" : "선택의 시간입니다...";
-                subtitle.innerText = state.phase === 'drawn' ? "모바일을 확인하세요." : "외면하시겠습니까, 마시겠습니까?";
-                
+            if(phase === 'drawn' || phase === 'bidding') {
+                title.innerText = phase === 'drawn' ? "새로운 잔이 나타났습니다" : "선택의 시간입니다...";
+                subtitle.innerText = phase === 'drawn' ? "모바일을 확인하세요." : "외면하시겠습니까, 마시겠습니까?";
                 cupArea.classList.remove('hidden');
-                document.getElementById('disp-cup-penalty').innerText = state.cup.penalty;
-                document.getElementById('disp-cup-tokens').innerText = state.cup.tokens;
+                document.getElementById('disp-cup-penalty').innerText = cup.penalty;
+                document.getElementById('disp-cup-tokens').innerText = cup.tokens;
                 
                 const actionMsg = document.getElementById('disp-action-msg');
-                if(state.phase === 'bidding') {
+                if(phase === 'bidding') {
                     actionMsg.classList.remove('hidden');
-                    // Show how many finished
-                    const pKeys = Object.keys(state.players);
-                    const doneCount = pKeys.filter(uid => state.players[uid].choice).length;
+                    const pKeys = Object.keys(players);
+                    const doneCount = pKeys.filter(uid => players[uid].choice).length;
                     actionMsg.innerHTML = `<span class="text-white text-xl bg-slate-800 px-4 py-2 rounded-full border border-slate-600">선택 완료: ${doneCount} / ${pKeys.length} 명</span>`;
-                } else {
-                    actionMsg.classList.add('hidden');
-                }
+                } else { actionMsg.classList.add('hidden'); }
             }
 
-            if(state.phase === 'resolved') {
-                title.innerText = "선택 결과";
-                subtitle.innerText = "";
+            if(phase === 'resolved') {
+                title.innerText = "선택 결과"; subtitle.innerText = "";
                 resultArea.classList.remove('hidden');
-                
-                resultArea.innerHTML = `
-                    <div class="bg-slate-800 border-4 border-slate-600 p-10 rounded-3xl shadow-2xl text-center animate-divine">
-                        <h2 class="text-4xl font-black text-white leading-tight">${state.lastResult || ''}</h2>
-                    </div>
-                `;
+                resultArea.innerHTML = `<div class="bg-slate-800 border-4 border-slate-600 p-10 rounded-3xl shadow-2xl text-center animate-divine"><h2 class="text-4xl font-black text-white leading-tight">${state.lastResult || ''}</h2></div>`;
             }
 
-            if(state.phase === 'resurrection') {
+            if(phase === 'resurrection') {
                 document.body.classList.add('resurrection-mode');
                 title.innerHTML = `<span class="text-6xl font-black text-purple-900 drop-shadow-lg">세 번째 날, 부활의 아침!</span>`;
                 subtitle.innerHTML = `<span class="text-2xl font-bold text-slate-700">"나를 위하여 목숨을 잃으면 찾으리라"</span>`;
-                
                 resultArea.classList.remove('hidden');
                 
-                const resPlayer = state.players[state.resurrectedUid];
-                
-                // Calculate final rankings
+                const resPlayer = players[state.resurrectedUid];
                 let ranking = [];
-                Object.keys(state.players).forEach(uid => {
-                    const p = state.players[uid];
+                Object.keys(players).forEach(uid => {
+                    const p = players[uid];
                     const isResurrected = (uid === state.resurrectedUid);
-                    const finalScore = p.tokens + calculateResurrectionScore(p.cards || [], isResurrected);
+                    const finalScore = (p.tokens||0) + calculateResurrectionScore(p.cards || [], isResurrected);
                     ranking.push({ name: p.name, score: finalScore, isHero: isResurrected });
                 });
                 ranking.sort((a,b) => b.score - a.score);
@@ -632,49 +648,28 @@
                     <div class="bg-white bg-opacity-90 border-8 border-purple-300 p-10 rounded-3xl shadow-2xl text-center w-full animate-divine">
                         <h3 class="text-3xl font-bold text-slate-600 mb-2">가장 무거운 십자가를 진 사람:</h3>
                         <h2 class="text-6xl font-black text-red-600 mb-6 drop-shadow-md">${resPlayer ? resPlayer.name : '없음'}</h2>
-                        <div class="text-2xl text-slate-800 font-bold bg-yellow-200 inline-block px-6 py-2 rounded-full mb-8">
-                            모든 마이너스 점수가 플러스(+)로 역전되었습니다!
-                        </div>
-                        <div class="mt-8 text-left w-full max-w-2xl mx-auto h-64 overflow-y-auto pr-4">
-                            ${rankingHtml}
-                        </div>
+                        <div class="text-2xl text-slate-800 font-bold bg-yellow-200 inline-block px-6 py-2 rounded-full mb-8">모든 마이너스 점수가 플러스(+)로 역전되었습니다!</div>
+                        <div class="mt-8 text-left w-full max-w-2xl mx-auto h-64 overflow-y-auto pr-4">${rankingHtml}</div>
                     </div>
                 `;
             }
         }
 
-        // ==========================================
-        // Helper Functions (Game Rules)
-        // ==========================================
-        
-        // No Thanks Rule: Consecutive numbers only count the lowest (e.g. -15, -16, -17 = only -15 counts)
         function calculatePenalty(cardsArray) {
             if(!cardsArray || cardsArray.length === 0) return 0;
-            // Cards are negative (e.g., -15). Sort descending (-10, -15, -20)
             let sorted = [...cardsArray].sort((a,b) => b - a);
             let sum = 0;
-            
             for(let i=0; i<sorted.length; i++) {
-                // If it's the first card, or NOT consecutive to the previous card (diff is not -1)
-                // Wait, if it's -15, consecutive is -16. So sorted[i-1] is -15, sorted[i] is -16.
-                // -16 - (-15) = -1.
-                if(i === 0 || sorted[i] - sorted[i-1] !== -1) {
-                    sum += sorted[i];
-                }
+                if(i === 0 || sorted[i] - sorted[i-1] !== -1) sum += sorted[i];
             }
             return sum;
         }
 
         function calculateResurrectionScore(cardsArray, isResurrected) {
             let pen = calculatePenalty(cardsArray);
-            if(isResurrected) {
-                return Math.abs(pen); // Convert -35 to +35!
-            } else {
-                return pen; // Keep negative
-            }
+            if(isResurrected) return Math.abs(pen); else return pen;
         }
 
-        // Initialize App
         window.addEventListener('DOMContentLoaded', initAuth);
 
     </script>
