@@ -23,6 +23,7 @@
         <h2 class="text-xl font-bold">서버에 접속 중입니다...</h2>
     </div>
 
+    <!-- SCREEN 0: 접속 역할 선택 -->
     <div id="screen-login" class="screen h-full items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
             <h1 class="text-3xl font-black text-purple-800 mb-1">✝️ 부활의 아침</h1>
@@ -40,6 +41,7 @@
         </div>
     </div>
 
+    <!-- 참가자 이름 입력 모달 -->
     <div id="player-name-modal" class="hidden absolute inset-0 bg-slate-900 bg-opacity-80 z-50 flex items-center justify-center p-4">
         <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
             <h3 class="text-lg font-bold text-slate-800 mb-2">당신의 이름을 입력하세요</h3>
@@ -50,6 +52,7 @@
         </div>
     </div>
 
+    <!-- SCREEN 1: 참가자 (모바일) 화면 -->
     <div id="screen-player" class="screen h-full bg-slate-100 overflow-y-auto">
         <header class="bg-purple-800 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
             <div class="font-bold text-lg"><i class="fas fa-user mr-2"></i><span id="p-my-name">이름</span></div>
@@ -64,15 +67,23 @@
                 <p class="text-sm text-slate-600 mt-2" id="p-status-desc">진행자의 지시를 기다리세요.</p>
             </div>
 
-            <div class="bg-slate-800 text-white p-4 rounded-xl shadow-inner mb-6 flex justify-between items-center">
-                <div class="text-sm">내가 짊어진 십자가(잔):</div>
-                <div class="font-bold text-red-400" id="p-my-cards-sum">0 점</div>
+            <!-- 보유한 잔 목록과 합계를 보여주는 영역 (개선됨) -->
+            <div class="bg-slate-800 text-white p-4 rounded-xl shadow-inner mb-6 flex flex-col">
+                <div class="flex justify-between items-center border-b border-slate-600 pb-2 mb-3">
+                    <div class="text-sm font-bold text-slate-300">내가 짊어진 십자가 합계:</div>
+                    <div class="font-black text-red-400 text-xl" id="p-my-cards-sum">0 점</div>
+                </div>
+                <div class="text-xs text-slate-400 mb-2"><i class="fas fa-list-ul mr-1"></i>보유한 진노의 잔 목록:</div>
+                <div id="p-my-cards-list" class="flex flex-wrap gap-2">
+                    <!-- JS에서 카드 목록을 주입합니다 -->
+                </div>
             </div>
 
             <div id="p-action-area" class="flex-grow flex flex-col justify-center"></div>
         </div>
     </div>
 
+    <!-- SCREEN 2: 진행자 (GM) 화면 -->
     <div id="screen-gm" class="screen h-full bg-slate-50 overflow-hidden">
         <header class="bg-slate-800 text-white p-3 shadow-sm flex justify-between items-center border-b border-slate-700">
             <h1 class="text-lg font-black text-slate-200"><i class="fas fa-sliders-h text-yellow-400 mr-2"></i>GM 통제실 (턴제)</h1>
@@ -106,11 +117,13 @@
                     <span>👥 참가자 현황 (<span id="gm-player-count">0</span>명)</span>
                 </h2>
                 <div id="gm-player-status-list" class="flex-grow overflow-y-auto space-y-2 max-h-80">
-                    </div>
+                    <!-- JS renders player status rows -->
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -143,7 +156,6 @@
         window.myRole = null; 
         window.gameState = null; 
 
-        // State는 이제 turnOrder와 currentTurnIndex를 관리합니다.
         const DEFAULT_STATE = {
             phase: 'lobby', // lobby, bidding, resolved, resurrection
             cup: { penalty: 0, tokens: 0 }, 
@@ -223,7 +235,7 @@
         }
 
         // ==========================================
-        // 참가자 화면 로직 (턴제 맞춤형 변경)
+        // 참가자 화면 로직 (카드 목록 표시 기능 추가)
         // ==========================================
         function updatePlayerUI() {
             const state = window.gameState || DEFAULT_STATE;
@@ -236,13 +248,29 @@
             document.getElementById('p-my-tokens').innerText = myData.tokens || 0;
             document.getElementById('p-my-cards-sum').innerText = `${calculatePenalty(myData.cards || [])} 점`;
 
+            // 🔥 보유한 잔 목록 HTML 렌더링 🔥
+            let sortedCards = [...(myData.cards || [])].sort((a,b) => b - a); // 내림차순 (-1, -2, -3)
+            let cardsHtml = '';
+            for(let i = 0; i < sortedCards.length; i++) {
+                // 이전 카드와 1차이 나면 연속된 숫자로 간주되어 무효화 (면제됨)
+                let isIgnored = (i > 0 && sortedCards[i] - sortedCards[i-1] === -1);
+                if(isIgnored) {
+                    cardsHtml += `<span class="bg-slate-700 text-slate-400 px-3 py-1.5 rounded text-sm font-bold line-through border border-slate-600 opacity-60" title="연속된 십자가의 은혜로 점수 면제!">${sortedCards[i]}</span>`;
+                } else {
+                    cardsHtml += `<span class="bg-red-900 text-red-100 px-3 py-1.5 rounded text-sm font-bold border border-red-700 shadow-sm">${sortedCards[i]}</span>`;
+                }
+            }
+            if(sortedCards.length === 0) {
+                cardsHtml = `<span class="text-slate-500 text-sm">아직 마신 잔이 없습니다.</span>`;
+            }
+            document.getElementById('p-my-cards-list').innerHTML = cardsHtml;
+
             const title = document.getElementById('p-status-title');
             const desc = document.getElementById('p-status-desc');
             const actionArea = document.getElementById('p-action-area');
             const statusContainer = document.getElementById('p-status-container');
             actionArea.innerHTML = '';
 
-            // 기본 배경색
             statusContainer.classList.remove('bg-purple-100', 'border-purple-400');
             statusContainer.classList.add('bg-white', 'border-slate-200');
 
@@ -256,7 +284,7 @@
 
                 if (isMyTurn) {
                     statusContainer.classList.remove('bg-white', 'border-slate-200');
-                    statusContainer.classList.add('bg-purple-100', 'border-purple-400'); // 내 턴일때 강조
+                    statusContainer.classList.add('bg-purple-100', 'border-purple-400'); // 내 턴 강조
                     title.innerText = "당신의 차례입니다!"; 
                     title.className = "text-3xl font-black text-purple-700 animate-pulse";
                     desc.innerHTML = `현재 잔: <strong class="text-red-600 text-lg">${state.cup.penalty}</strong> (눈물 <strong class="text-blue-600">${state.cup.tokens}</strong>개)`;
@@ -287,9 +315,6 @@
             }
         }
 
-        // ==========================================
-        // 참가자 액션 처리 (자동 턴 넘김 & 자동 결과 처리)
-        // ==========================================
         window.submitAction = async (action) => {
             const state = window.gameState;
             let players = state.players || {};
@@ -297,10 +322,8 @@
 
             if (action === 'pass') {
                 if (players[window.myUid].tokens <= 0) return;
-                // 토큰 차감 및 잔에 추가
                 players[window.myUid].tokens -= 1;
                 cup.tokens += 1;
-                // 턴을 다음 사람으로 넘김 (배열 길이로 나머지 연산 = 무한 순환)
                 let nextIndex = (state.currentTurnIndex + 1) % state.turnOrder.length;
                 await setDoc(docRef, { players: players, cup: cup, currentTurnIndex: nextIndex }, { merge: true });
             } 
@@ -308,12 +331,11 @@
                 let winner = players[window.myUid];
                 if (!winner.cards) winner.cards = [];
                 winner.cards.push(cup.penalty);
-                winner.cards.sort((a,b) => b - a); // 내림차순 정렬
+                winner.cards.sort((a,b) => b - a);
                 winner.tokens += cup.tokens;
 
                 let lastResult = `<span class="text-red-500 font-black">${winner.name}</span>님이<br>잔을 마셨습니다!<br><span class="text-3xl text-slate-300 mt-4 block">패널티 ${cup.penalty} / 눈물 ${cup.tokens}개 획득</span>`;
                 
-                // 마신 순간 라운드 자동 종료
                 await setDoc(docRef, { 
                     phase: 'resolved', 
                     players: players, 
@@ -367,17 +389,13 @@
             });
         }
 
-        // 라운드 시작 (순서 섞고 잔 생성)
         window.gmStartRound = async () => {
             const state = window.gameState || DEFAULT_STATE;
             let players = state.players || {};
             const pKeys = Object.keys(players);
             if(pKeys.length === 0) return alert("접속한 참가자가 없습니다!");
 
-            // -1 ~ -20 무작위 생성
             const penalty = -1 * (Math.floor(Math.random() * 20) + 1);
-            
-            // 접속한 사람들로 순서 배열 만들고 무작위로 섞기
             let turnOrder = [...pKeys].sort(() => 0.5 - Math.random());
 
             await setDoc(docRef, { 
@@ -405,10 +423,9 @@
             if(confirm("모든 데이터를 지울까요?")) await setDoc(docRef, DEFAULT_STATE);
         };
 
-        // 연속된 숫자는 제일 작은(절댓값 큰) 1개만 카운트하는 룰 적용 계산기
         function calculatePenalty(cardsArray) {
             if(!cardsArray || cardsArray.length === 0) return 0;
-            let sorted = [...cardsArray].sort((a,b) => b - a); // 내림차순 정렬 (-1, -2, -3)
+            let sorted = [...cardsArray].sort((a,b) => b - a);
             let sum = 0;
             for(let i=0; i<sorted.length; i++) {
                 if(i === 0 || sorted[i] - sorted[i-1] !== -1) sum += sorted[i];
